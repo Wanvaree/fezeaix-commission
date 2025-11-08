@@ -2,12 +2,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext'; // Import useAuth
+
 function LoginPage() {
 const [username, setUsername] = useState('');
 const [password, setPassword] = useState('');
 const [error, setError] = useState('');
 const { login } = useAuth();
 const navigate = useNavigate();
+
+// 🚨 แก้ไข: เพิ่ม async
 const handleSubmit = async (e) => {
 e.preventDefault();
 setError('');
@@ -16,7 +19,8 @@ if (!username || !password) {
     return;
 }
 
-const result = login(username, password); // เรียกใช้ฟังก์ชัน login จาก Context
+// 🚨 แก้ไข: ใช้ await เพื่อรอผลลัพธ์จากฟังก์ชัน login (ซึ่งเป็น async function ใน AuthContext)
+const result = await login(username, password); 
 
 if (result.success) {
   navigate('/dashboard/gallery'); // เข้าสู่ระบบสำเร็จ พาไปหน้า Dashboard
@@ -24,6 +28,7 @@ if (result.success) {
   setError(result.message); // แสดงข้อความ error เช่น "Invalid username or password."
 }
 };
+
 return (
 <div className="flex items-center justify-center min-h-screen bg-blue-800">
 <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
