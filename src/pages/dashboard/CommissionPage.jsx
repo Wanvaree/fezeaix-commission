@@ -3,28 +3,37 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FaChevronLeft, FaChevronRight, FaHeart, FaTimes } from 'react-icons/fa'; // Import icons
 
-// 🚨 Import รูปภาพใหม่ทั้งหมด (และที่เกี่ยวข้อง)
-import art2 from '../../assets/images/art2.png';
-import art7 from '../../assets/images/art7.png';
-import art8 from '../../assets/images/art8.png';
-import art9 from '../../assets/images/art9.jpg';
-import art10_1 from '../../assets/images/art10.1.png';
-import art10_2 from '../../assets/images/art10.2.png';
-import art10_3 from '../../assets/images/art10.3.jpg';
+// 🚨 Import รูปภาพที่จำเป็นสำหรับรายการใหม่
+import art1_1 from '../../assets/images/art1.1.png';
+import art3 from '../../assets/images/art3.png';
+import art6 from '../../assets/images/art6.png';
+import art11 from '../../assets/images/art11.png';
+import art13 from '../../assets/images/art13.png';
+import art17 from '../../assets/images/art17.png';
+
+// 🚨 Import รูปภาพจากรายการก่อนหน้า (ถ้ายังต้องการใช้)
+import art2 from '../../assets/images/art2.png'; 
+import art7 from '../../assets/images/art7.png'; 
+import art8 from '../../assets/images/art8.png'; 
+import art9 from '../../assets/images/art9.jpg'; 
+import art10_1 from '../../assets/images/art10.1.png'; 
+import art10_2 from '../../assets/images/art10.2.png'; 
+import art10_3 from '../../assets/images/art10.3.jpg'; 
 import art18 from '../../assets/images/art18.png';
-import art1_1 from '../../assets/images/art1.1.png'; // นำกลับมาใช้สำหรับรายการอื่น
+import art1 from '../../assets/images/art1.png'; // ตัวอย่างเพิ่มเติม
 
 // กำหนดข้อมูล Commission Types
 const commissionTypes = [
     {
-        // 🚨 แก้ไข: เปลี่ยนเป็น Flat Color
-        id: 'flat-color',
-        title: '[ Flat Color ] Icon/PFP/Avatar/Fanart/Illustration',
+        // 🚨 แก้ไข: รายการแรกเป็น Full Color Bust
+        id: 'full-color-bust',
+        title: '[ Full Color ] PFP/Avatar/Fanart/Illustration/OC', // 🚨 แก้ไข Title
         // 🚨 แก้ไข: เปลี่ยน Description
         description: 'ขอบคุณที่ให้ความสนใจในงานคอมมิชชั่นของเรานะคะ! กรุณาส่งคำขอเฉพาะเมื่อคุณยอมรับรายละเอียดบริการและข้อตกลงการให้บริการของเราแล้วเท่านั้นนะคะ ขอบคุณค่ะ 💕',
-        price: 12, // สมมติ 400+ บาท = $12+ USD
-        buttonColor: 'blue',
-        // 🚨 แก้ไข: ใช้ Array of Images ที่คุณต้องการสำหรับ Carousel
+        price: 20, // 🚨 สมมติ 650+ บาท = $20+ USD
+        priceBaht: '650+', // 🚨 เพิ่ม Baht Price เพื่อแสดงใน UI
+        buttonColor: 'purple',
+        // 🚨 ใช้ Array of Images ที่คุณต้องการสำหรับ Full Color Bust (ใช้รูปจากรายการเก่า)
         images: [
             art2,
             art7,
@@ -37,17 +46,24 @@ const commissionTypes = [
         ],
     },
     {
-        id: 'full-color-bust',
-        title: 'Full Color Bust',
-        description: 'A detailed, fully colored character bust.',
-        price: 80,
-        buttonColor: 'purple',
+        // 🚨 เพิ่ม: รายการที่สองเป็น Rough Color
+        id: 'rough-color',
+        title: '[ Rough Color ] PFP/OC/Fanart/Illustration', // 🚨 แก้ไข Title
+        // 🚨 แก้ไข: เปลี่ยน Description
+        description: 'ขอบคุณที่ให้ความสนใจในงานคอมมิชชั่นของเรานะคะ! กรุณาส่งคำขอเฉพาะเมื่อคุณยอมรับรายละเอียดบริการและข้อตกลงการให้บริการของเราแล้วเท่านั้นนะคะ ขอบคุณค่ะ 💕',
+        price: 14, // 🚨 สมมติ 450+ บาท = $14+ USD
+        priceBaht: '450+', // 🚨 เพิ่ม Baht Price
+        buttonColor: 'blue',
+        // 🚨 ใช้ Array of Images ที่คุณต้องการสำหรับ Rough Color
         images: [
-            art1_1, // ใช้รูปภาพเดิม (หรือเปลี่ยนเป็นรูปภาพ Full Color ของคุณ)
-            'https://via.placeholder.com/400x300/A78BFA/FFFFFF?text=Full+Color+Example+2',
+            art1_1,
+            art3,
+            art6,
+            art11,
+            art13,
+            art17,
         ],
     },
-    // คุณสามารถเพิ่ม Commission Type อื่นๆ ได้ที่นี่
 ];
 
 // ข้อความ Terms of Service แบบยาว (คงเดิม)
@@ -82,7 +98,7 @@ google drive
 **ต้องการตัวอย่างงานเพิ่มทักขอผ่านDMได้เสมอค่ะ**
 `;
 
-// Component Modal สำหรับ Start Request (โค้ดเดิม)
+// Component Modal สำหรับ Start Request 
 function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [termsAccepted, setTermsAccepted] = useState(false);
@@ -138,7 +154,11 @@ function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
             >
                 {/* Header */}
                 <div className="flex justify-between items-center p-5 border-b border-gray-200">
-                    <h2 className="text-2xl font-bold text-gray-800">Request: {commission.title} (${commission.price})</h2>
+                    <h2 className="text-2xl font-bold text-gray-800">
+                        Request: {commission.title} 
+                        {/* 🚨 แสดง Price Baht/USD ใน Modal Header */}
+                        <span className="text-xl text-purple-600 ml-2">(${commission.price} / {commission.priceBaht} Baht)</span>
+                    </h2>
                     <button
                         className="text-gray-400 hover:text-gray-700 transition-colors"
                         onClick={onClose}
@@ -192,7 +212,7 @@ function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
                             <p className="text-2xl font-bold text-purple-600">
                                 ${commission.price} 
                                 {/* 🚨 แสดงราคาบาท (ตัวอย่าง) */}
-                                {commission.id === 'flat-color' && <span className="text-base text-gray-500 font-normal ml-2">(400+ Baht)</span>}
+                                <span className="text-base text-gray-500 font-normal ml-2">({commission.priceBaht} Baht)</span>
                             </p>
                         </div>
                         
@@ -256,8 +276,6 @@ function CommissionPage() {
     
     // ฟังก์ชันส่ง request ไปยัง AuthContext
     const handleCommissionSubmit = (requestDetails) => {
-        // เนื่องจากไม่มี description ให้ส่ง description: '' ไปแทน (หรือจะให้ Context จัดการ)
-        // เพื่อให้เข้ากันกับโครงสร้างเดิมใน AuthContext ที่อาจคาดหวัง field นี้
         return addCommissionRequest({ ...requestDetails, description: `[Commission request for ${requestDetails.commissionType}. Client will contact artist via inbox for details.]` });
     };
 
@@ -286,7 +304,7 @@ function CommissionPage() {
                         
                         <p className={`${commission.buttonColor === 'blue' ? 'text-blue-900' : 'text-purple-900'} font-bold text-xl mb-4`}>
                             Price: ${commission.price} 
-                            {commission.id === 'flat-color' && <span className="text-base text-gray-500 font-normal ml-2">(400+ Baht)</span>}
+                            <span className="text-base text-gray-500 font-normal ml-2">({commission.priceBaht} Baht)</span>
                         </p>
                         <button 
                             onClick={() => openRequestModal(commission)}
