@@ -3,19 +3,37 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FaChevronLeft, FaChevronRight, FaHeart, FaTimes } from 'react-icons/fa'; // Import icons
 
+// 🚨 Import รูปภาพใหม่ทั้งหมด (และที่เกี่ยวข้อง)
+import art2 from '../../assets/images/art2.png';
+import art7 from '../../assets/images/art7.png';
+import art8 from '../../assets/images/art8.png';
+import art9 from '../../assets/images/art9.jpg';
+import art10_1 from '../../assets/images/art10.1.png';
+import art10_2 from '../../assets/images/art10.2.png';
+import art10_3 from '../../assets/images/art10.3.jpg';
+import art18 from '../../assets/images/art18.png';
+import art1_1 from '../../assets/images/art1.1.png'; // นำกลับมาใช้สำหรับรายการอื่น
+
 // กำหนดข้อมูล Commission Types
 const commissionTypes = [
     {
-        id: 'basic-sketch',
-        title: 'Basic Sketch',
-        description: 'A simple black and white line art piece.',
-        price: 20,
+        // 🚨 แก้ไข: เปลี่ยนเป็น Flat Color
+        id: 'flat-color',
+        title: '[ Flat Color ] Icon/PFP/Avatar/Fanart/Illustration',
+        // 🚨 แก้ไข: เปลี่ยน Description
+        description: 'ขอบคุณที่ให้ความสนใจในงานคอมมิชชั่นของเรานะคะ! กรุณาส่งคำขอเฉพาะเมื่อคุณยอมรับรายละเอียดบริการและข้อตกลงการให้บริการของเราแล้วเท่านั้นนะคะ ขอบคุณค่ะ 💕',
+        price: 12, // สมมติ 400+ บาท = $12+ USD
         buttonColor: 'blue',
-        // ใช้ Array of Images สำหรับ Carousel
+        // 🚨 แก้ไข: ใช้ Array of Images ที่คุณต้องการสำหรับ Carousel
         images: [
-            'https://via.placeholder.com/400x300/60A5FA/FFFFFF?text=Sketch+Example+1',
-            'https://via.placeholder.com/400x300/60A5FA/FFFFFF?text=Sketch+Example+2',
-            'https://via.placeholder.com/400x300/60A5FA/FFFFFF?text=Sketch+Example+3',
+            art2,
+            art7,
+            art8,
+            art9,
+            art10_1,
+            art10_2,
+            art10_3,
+            art18,
         ],
     },
     {
@@ -25,14 +43,14 @@ const commissionTypes = [
         price: 80,
         buttonColor: 'purple',
         images: [
-            'https://via.placeholder.com/400x300/A78BFA/FFFFFF?text=Full+Color+Example+1',
+            art1_1, // ใช้รูปภาพเดิม (หรือเปลี่ยนเป็นรูปภาพ Full Color ของคุณ)
             'https://via.placeholder.com/400x300/A78BFA/FFFFFF?text=Full+Color+Example+2',
         ],
     },
     // คุณสามารถเพิ่ม Commission Type อื่นๆ ได้ที่นี่
 ];
 
-// ข้อความ Terms of Service แบบยาว (คุณสามารถมาแก้ไขเองได้ภายหลัง)
+// ข้อความ Terms of Service แบบยาว (คงเดิม)
 const TERMS_OF_SERVICE = `
 ❎งานที่ไม่รับ
 • คนแก่ เด็กทารก
@@ -64,7 +82,7 @@ google drive
 **ต้องการตัวอย่างงานเพิ่มทักขอผ่านDMได้เสมอค่ะ**
 `;
 
-// Component Modal สำหรับ Start Request
+// Component Modal สำหรับ Start Request (โค้ดเดิม)
 function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [termsAccepted, setTermsAccepted] = useState(false);
@@ -80,7 +98,6 @@ function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
         setCurrentImageIndex(newIndex);
     };
 
-    // 🚨 แก้ไข: เพิ่ม async
     const handleSubmit = async () => {
         if (!termsAccepted) {
             setSubmissionError('You must accept the Terms of Service to proceed.');
@@ -97,17 +114,14 @@ function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
             requesterUsername: requesterUsername,
         };
 
-        // 🚨 แก้ไข: เพิ่ม await เพื่อรอให้ Firebase บันทึกข้อมูลเสร็จ
-        const result = await onSubmit(requestDetails); 
+        const result = await onSubmit(requestDetails);
 
         setIsSubmitting(false);
 
         if (result.success) {
-            setSubmissionSuccess(result.message); // 🚨 จะแสดงข้อความสำเร็จที่เป็นสีเขียว
-            // ปิด Modal หลังจากส่งสำเร็จ 2 วินาที
+            setSubmissionSuccess(result.message); 
             setTimeout(onClose, 2000);
         } else {
-            // 🚨 จะแสดงข้อความ Error จาก Firebase (ถ้ามี)
             setSubmissionError(result.message || 'Failed to submit request.'); 
         }
     };
@@ -175,10 +189,12 @@ function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
                         <div className="mb-4">
                             <h3 className="text-xl font-semibold text-gray-800 mb-2">Commission Details</h3>
                             <p className="text-gray-600 mb-2">{commission.description}</p>
-                            <p className="text-2xl font-bold text-purple-600">${commission.price}</p>
+                            <p className="text-2xl font-bold text-purple-600">
+                                ${commission.price} 
+                                {/* 🚨 แสดงราคาบาท (ตัวอย่าง) */}
+                                {commission.id === 'flat-color' && <span className="text-base text-gray-500 font-normal ml-2">(400+ Baht)</span>}
+                            </p>
                         </div>
-                        
-                        {/* ลบส่วน Your Request Description / Reference Links ออก */}
                         
                         <h3 className="text-xl font-semibold text-gray-800 mb-2 border-t pt-4">Terms of Service</h3>
                         <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 max-h-40 overflow-y-auto custom-scroll mb-4">
@@ -268,7 +284,10 @@ function CommissionPage() {
                             </span>
                         </div>
                         
-                        <p className={`${commission.buttonColor === 'blue' ? 'text-blue-900' : 'text-purple-900'} font-bold text-xl mb-4`}>Price: ${commission.price}</p>
+                        <p className={`${commission.buttonColor === 'blue' ? 'text-blue-900' : 'text-purple-900'} font-bold text-xl mb-4`}>
+                            Price: ${commission.price} 
+                            {commission.id === 'flat-color' && <span className="text-base text-gray-500 font-normal ml-2">(400+ Baht)</span>}
+                        </p>
                         <button 
                             onClick={() => openRequestModal(commission)}
                             className={`mt-auto ${commission.buttonColor === 'blue' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'} text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 shadow-md`}
