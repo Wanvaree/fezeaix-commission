@@ -68,8 +68,6 @@ google drive
 function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [termsAccepted, setTermsAccepted] = useState(false);
-    // ลบ requestDescription state
-    // const [requestDescription, setRequestDescription] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submissionError, setSubmissionError] = useState('');
     const [submissionSuccess, setSubmissionSuccess] = useState('');
@@ -82,12 +80,12 @@ function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
         setCurrentImageIndex(newIndex);
     };
 
+    // 🚨 แก้ไข: เพิ่ม async
     const handleSubmit = async () => {
         if (!termsAccepted) {
             setSubmissionError('You must accept the Terms of Service to proceed.');
             return;
         }
-        // ลบ validation สำหรับ requestDescription
 
         setIsSubmitting(true);
         setSubmissionError('');
@@ -97,19 +95,20 @@ function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
             commissionType: commission.title,
             price: commission.price,
             requesterUsername: requesterUsername,
-            // ลบ description ออกจาก requestDetails
         };
 
-        const result = onSubmit(requestDetails);
+        // 🚨 แก้ไข: เพิ่ม await เพื่อรอให้ Firebase บันทึกข้อมูลเสร็จ
+        const result = await onSubmit(requestDetails); 
 
         setIsSubmitting(false);
 
         if (result.success) {
-            setSubmissionSuccess(result.message);
+            setSubmissionSuccess(result.message); // 🚨 จะแสดงข้อความสำเร็จที่เป็นสีเขียว
             // ปิด Modal หลังจากส่งสำเร็จ 2 วินาที
             setTimeout(onClose, 2000);
         } else {
-            setSubmissionError(result.message || 'Failed to submit request.');
+            // 🚨 จะแสดงข้อความ Error จาก Firebase (ถ้ามี)
+            setSubmissionError(result.message || 'Failed to submit request.'); 
         }
     };
 
