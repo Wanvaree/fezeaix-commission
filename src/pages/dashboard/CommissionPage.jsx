@@ -3,16 +3,9 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FaChevronLeft, FaChevronRight, FaHeart, FaTimes } from 'react-icons/fa'; // Import icons
 
-// 🚨 Import รูปภาพที่จำเป็นสำหรับรายการใหม่
-import art6_1 from '../../assets/images/art6.1.png';
-import art7_2 from '../../assets/images/art7.2.png';
-import art12 from '../../assets/images/art12.png';
-import art14 from '../../assets/images/art14.jpg';
-import art15 from '../../assets/images/art15.png';
-import art16_1 from '../../assets/images/art16.1.png';
-import art16 from '../../assets/images/art16.png';
+// 🚨🚨🚨 โค้ดส่วน Import ที่ถูกต้อง 🚨🚨🚨
 
-// 🚨 Import รูปภาพจากรายการก่อนหน้า (ต้องคงไว้)
+// Import สำหรับ Full Color
 import art2 from '../../assets/images/art2.png'; 
 import art7 from '../../assets/images/art7.png'; 
 import art8 from '../../assets/images/art8.png'; 
@@ -22,18 +15,34 @@ import art10_2 from '../../assets/images/art10.2.png';
 import art10_3 from '../../assets/images/art10.3.jpg'; 
 import art18 from '../../assets/images/art18.png';
 
+// Import สำหรับ Rough Color (รวม art1_1 ที่แจ้ง Error)
+import art1_1 from '../../assets/images/art1.1.png';
+import art3 from '../../assets/images/art3.png'; 
+import art6 from '../../assets/images/art6.png'; 
+import art11 from '../../assets/images/art11.png'; 
+import art13 from '../../assets/images/art13.png'; 
+import art17 from '../../assets/images/art17.png'; 
+
+// Import สำหรับ Full Color Bust Up
+import art6_1 from '../../assets/images/art6.1.png';
+import art7_2 from '../../assets/images/art7.2.png';
+import art12 from '../../assets/images/art12.png';
+import art14 from '../../assets/images/art14.jpg';
+import art15 from '../../assets/images/art15.png';
+import art16_1 from '../../assets/images/art16.1.png';
+import art16 from '../../assets/images/art16.png';
+
 
 // กำหนดข้อมูล Commission Types
 const commissionTypes = [
     {
-        // 🚨 แก้ไข: รายการแรกเป็น Full Color
+        // รายการแรกเป็น Full Color
         id: 'full-color',
-        title: '[ Full Color ] PFP/OC/Fanart/Illustration', // 🚨 แก้ไข Title
+        title: '[ Full Color ] PFP/OC/Fanart/Illustration',
         description: 'ขอบคุณที่ให้ความสนใจในงานคอมมิชชั่นของเรานะคะ! กรุณาส่งคำขอเฉพาะเมื่อคุณยอมรับรายละเอียดบริการและข้อตกลงการให้บริการของเราแล้วเท่านั้นนะคะ ขอบคุณค่ะ 💕',
-        price: 25, // 🚨 สมมติ 800+ บาท = $25+ USD
-        priceBaht: '800+', // 🚨 แก้ไข Baht Price
+        price: 25, 
+        priceBaht: '800+', 
         buttonColor: 'purple',
-        // ใช้ Array of Images ที่คุณต้องการสำหรับ Full Color
         images: [
             art2,
             art7,
@@ -46,16 +55,15 @@ const commissionTypes = [
         ],
     },
     {
-        // 🚨 รายการที่สองเป็น Rough Color
+        // รายการที่สองเป็น Rough Color
         id: 'rough-color',
         title: '[ Rough Color ] PFP/OC/Fanart/Illustration', 
         description: 'ขอบคุณที่ให้ความสนใจในงานคอมมิชชั่นของเรานะคะ! กรุณาส่งคำขอเฉพาะเมื่อคุณยอมรับรายละเอียดบริการและข้อตกลงการให้บริการของเราแล้วเท่านั้นนะคะ ขอบคุณค่ะ 💕',
-        price: 17, // 🚨 สมมติ 550+ บาท = $17+ USD
-        priceBaht: '550+', // 🚨 แก้ไข Baht Price
+        price: 17, 
+        priceBaht: '550+', 
         buttonColor: 'blue',
-        // ใช้ Array of Images ที่คุณต้องการสำหรับ Rough Color (คงเดิม)
         images: [
-            art1_1,
+            art1_1, // 🚨 ตัวแปรนี้เคย Error
             art3,
             art6,
             art11,
@@ -64,14 +72,13 @@ const commissionTypes = [
         ],
     },
     {
-        // 🚨 เพิ่ม: รายการที่สามเป็น Full Color Bust Up
+        // รายการที่สามเป็น Full Color Bust Up
         id: 'full-color-bust-up',
-        title: '[ Full Color Bust Up ] PhotoID/OC/Cannon', // 🚨 เพิ่ม Title
+        title: '[ Full Color Bust Up ] PhotoID/OC/Cannon', 
         description: 'ขอบคุณที่ให้ความสนใจในงานคอมมิชชั่นของเรานะคะ! กรุณาส่งคำขอเฉพาะเมื่อคุณยอมรับรายละเอียดบริการและข้อตกลงการให้บริการของเราแล้วเท่านั้นนะคะ ขอบคุณค่ะ 💕',
-        price: 14, // 🚨 สมมติ 450+ บาท = $14+ USD
-        priceBaht: '450+', // 🚨 เพิ่ม Baht Price
+        price: 14, 
+        priceBaht: '450+', 
         buttonColor: 'purple',
-        // 🚨 ใช้ Array of Images ที่คุณต้องการสำหรับ Full Color Bust Up
         images: [
             art6_1,
             art7_2,
