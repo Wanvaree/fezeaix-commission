@@ -4,7 +4,6 @@ import { useAuth } from '../../context/AuthContext';
 import { FaTrash, FaPaperPlane, FaUserCircle } from 'react-icons/fa';
 
 // Component ย่อยสำหรับหน้าต่างแชท (Admin Side)
-// 🚨 เพิ่ม deleteMessage prop
 function CommissionChat({ request, currentUser, addMessage, deleteMessage }) { 
     const [messageInput, setMessageInput] = useState('');
     const chatEndRef = useRef(null);
@@ -14,17 +13,15 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [request.messages]);
 
-    // 🚨 แก้ไข: เปลี่ยน handleSend ให้เป็น async
     const handleSend = async (e) => {
         e.preventDefault();
         if (messageInput.trim()) {
-            // 🚨 ใช้ await เพื่อรอการส่งข้อความ
             await addMessage(request.id, currentUser.username, messageInput.trim()); 
             setMessageInput('');
         }
     };
     
-    // 🚨 ฟังก์ชันลบข้อความ
+    // ฟังก์ชันลบข้อความ
     const handleDeleteMessage = (messageId) => {
         if (window.confirm('Are you sure you want to delete this message? It will be removed for both the client and the artist.')) {
             deleteMessage(request.id, messageId);
@@ -45,7 +42,6 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
             
             {/* Message Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll">
-                {/* แก้ไข: ตรวจสอบว่ามี messages ก่อน map */}
                 {request.messages && request.messages.map((msg) => {
                     const isCurrentUser = msg.sender === currentUser.username;
                     const isSystem = msg.sender === 'System';
@@ -63,28 +59,34 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
                             key={msg.id} 
                             className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                         >
-                            {/* 🚨 เพิ่ม: ปุ่มลบข้อความสำหรับ Admin (อยู่ข้างข้อความของตัวเอง) */}
-                            {isCurrentUser && (
-                                <button
-                                    onClick={() => handleDeleteMessage(msg.id)}
-                                    className="mr-2 self-center text-red-400 hover:text-red-600 transition-colors"
-                                    title="Delete Message"
-                                >
-                                    <FaTrash size={12} />
-                                </button>
-                            )}
-                            <div className={`max-w-[70%] px-4 py-2 rounded-xl shadow-md ${
-                                isCurrentUser 
-                                ? 'bg-blue-600 text-white rounded-br-none' 
-                                : 'bg-gray-200 text-gray-800 rounded-tl-none'
-                            }`}>
-                                <p className="font-semibold text-xs mb-1 opacity-80">
-                                    {isCurrentUser ? 'Me (Artist)' : msg.sender}
-                                </p>
-                                <p className="text-sm break-words">{msg.text}</p>
-                                <span className={`block text-right mt-1 ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'} text-xs`}>
-                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
+                            {/* 🚨 โค้ดที่แก้ไข: เพิ่ม div ครอบปุ่มลบและ Bubble ข้อความ */}
+                            <div className={`flex items-end max-w-[80%] ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                                
+                                {/* 1. ปุ่มลบ (แสดงเฉพาะเมื่อเป็นข้อความของ Admin/CurrentUser) */}
+                                {isCurrentUser && (
+                                    <button
+                                        onClick={() => handleDeleteMessage(msg.id)}
+                                        className="mb-1 p-1 text-red-400 hover:text-red-600 transition-colors flex-shrink-0" 
+                                        title="Delete Message"
+                                    >
+                                        <FaTrash size={12} />
+                                    </button>
+                                )}
+                                
+                                {/* 2. Bubble ข้อความ */}
+                                <div className={`px-4 py-2 rounded-xl shadow-md ${
+                                    isCurrentUser 
+                                    ? 'bg-blue-600 text-white rounded-br-none' 
+                                    : 'bg-gray-200 text-gray-800 rounded-tl-none'
+                                }`}>
+                                    <p className="font-semibold text-xs mb-1 opacity-80">
+                                        {isCurrentUser ? 'Me (Artist)' : msg.sender}
+                                    </p>
+                                    <p className="text-sm break-words">{msg.text}</p>
+                                    <span className={`block text-right mt-1 ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'} text-xs`}>
+                                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     );
@@ -118,7 +120,7 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
 
 
 function InboxPage() {
-    // 🚨 เพิ่ม deleteMessageFromCommissionRequest
+    // 🚨 แก้ไข: เพิ่ม deleteMessageFromCommissionRequest
     const { commissionRequests, deleteCommissionRequest, user, addMessageToCommissionRequest, deleteMessageFromCommissionRequest } = useAuth();
     
     // เรียงลำดับ Requests ก่อนเพื่อเลือกอันล่าสุด
