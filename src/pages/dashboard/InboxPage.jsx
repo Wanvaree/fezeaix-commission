@@ -47,9 +47,12 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
                     const isSystem = msg.sender === 'System';
                     
                     if (isSystem) {
+                         // 🚨 แก้ไข: เพิ่ม div ครอบเพื่อให้จัดกึ่งกลางและจำกัดความกว้าง
                          return (
-                            <div key={msg.id} className="text-center text-xs text-gray-400 italic">
-                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {msg.text}
+                            <div key={msg.id} className="flex justify-center w-full"> 
+                                <div className="text-center text-xs text-gray-400 italic max-w-lg p-2 rounded-lg bg-gray-50 border border-gray-200">
+                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {msg.text}
+                                </div>
                             </div>
                         );
                     }
@@ -59,7 +62,7 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
                             key={msg.id} 
                             className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                         >
-                            {/* 🚨 โค้ดที่แก้ไข: เพิ่ม div ครอบปุ่มลบและ Bubble ข้อความ */}
+                            {/* 🚨 โค้ดที่แก้ไข: div ครอบปุ่มลบและ Bubble ข้อความ */}
                             <div className={`flex items-end max-w-[80%] ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
                                 
                                 {/* 1. ปุ่มลบ (แสดงเฉพาะเมื่อเป็นข้อความของ Admin/CurrentUser) */}
