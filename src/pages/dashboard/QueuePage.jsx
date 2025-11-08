@@ -1,7 +1,7 @@
 // src/pages/dashboard/QueuePage.jsx
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { FaEdit, FaTrash, FaCheckCircle, FaSpinner } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaCheckCircle, FaSpinner } from 'react-icons/fa'; // Import FaSpinner
 
 // สถานะที่เป็นไปได้สำหรับงาน
 const STATUS_OPTIONS = [
@@ -35,27 +35,36 @@ const getStatusClasses = (status) => {
 // Component สำหรับ Admin ในการแก้ไขสถานะ
 function AdminEditStatus({ request, updateStatus, deleteRequest }) {
     const [isEditing, setIsEditing] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false); // 🚨 เพิ่ม State สำหรับ Loading
     const [newStatus, setNewStatus] = useState(request.status);
 
-    const handleUpdate = () => {
-        updateStatus(request.id, newStatus);
+    const handleUpdate = async () => { // 🚨 เปลี่ยนเป็น async
+        setIsUpdating(true);
+        // 🚨 ใช้ await
+        await updateStatus(request.id, newStatus); 
+        setIsUpdating(false);
         setIsEditing(false);
     };
     
-    const handleDelete = () => {
+    const handleDelete = async () => { // 🚨 เปลี่ยนเป็น async
         if (window.confirm(`Are you sure you want to permanently delete the commission from ${request.requesterUsername}?`)) {
-            deleteRequest(request.id);
+            setIsUpdating(true);
+            // 🚨 ใช้ await
+            await deleteRequest(request.id);
+            setIsUpdating(false);
         }
     };
 
     return (
         <div className="flex items-center space-x-2">
-            {isEditing ? (
+            {isUpdating ? ( // 🚨 แสดง Loading Spinner เมื่อกำลังอัปเดต
+                <FaSpinner className="animate-spin text-blue-500" size={16} title="Updating..." />
+            ) : isEditing ? (
                 <>
                     <select
                         value={newStatus}
                         onChange={(e) => setNewStatus(e.target.value)}
-                        className={`p-1 text-sm border rounded ${getStatusClasses(newStatus)}`}
+                        className={`p-1 text-sm border rounded ${getStatusClasses(newStatus)} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
                     >
                         {STATUS_OPTIONS.map(status => (
                             <option key={status} value={status}>{status}</option>
@@ -78,6 +87,9 @@ function AdminEditStatus({ request, updateStatus, deleteRequest }) {
                 </>
             ) : (
                 <>
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusClasses(request.status)}`}>
+                        {request.status}
+                    </span>
                     <button 
                         onClick={() => setIsEditing(true)} 
                         className="p-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
@@ -103,6 +115,7 @@ function QueuePage() {
     const { commissionRequests, isAdmin, updateCommissionStatus, deleteCommissionRequest } = useAuth();
     
     // เรียงลำดับงานตามวันที่ (ใหม่สุดมาก่อน)
+    // 🚨 แก้ไข: เรียงตาม ID เพื่อให้ New Request มาก่อน (หรือจะคงตาม timestamp เดิมก็ได้)
     const sortedRequests = commissionRequests.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     return (
@@ -159,18 +172,23 @@ function QueuePage() {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-bold">
                                         ${request.price}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusClasses(request.status)}`}>
-                                            {request.status}
-                                        </span>
-                                    </td>
-                                    {isAdmin && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium"> 
+                                        {isAdmin ? (
                                             <AdminEditStatus 
                                                 request={request}
                                                 updateStatus={updateCommissionStatus}
                                                 deleteRequest={deleteCommissionRequest}
                                             />
+                                        ) : (
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusClasses(request.status)}`}>
+                                                {request.status}
+                                            </span>
+                                        )}
+                                    </td>
+                                    {isAdmin && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                                            {/* 🚨 ลบส่วนนี้ออก เพราะเราย้าย Actions เข้าไปใน AdminEditStatus แล้ว */}
+                                            {/* <AdminEditStatus ... /> */}
                                         </td>
                                     )}
                                 </tr>
