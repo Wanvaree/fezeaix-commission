@@ -13,10 +13,12 @@ function ClientCommissionChat({ request, currentUser, addMessage }) {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [request.messages]);
 
-    const handleSend = (e) => {
+    // 🚨 แก้ไข: เปลี่ยน handleSend ให้เป็น async
+    const handleSend = async (e) => {
         e.preventDefault();
         if (messageInput.trim()) {
-            addMessage(request.id, currentUser.username, messageInput.trim());
+            // 🚨 ใช้ await เพื่อรอการส่งข้อความ
+            await addMessage(request.id, currentUser.username, messageInput.trim());
             setMessageInput('');
         }
     };
@@ -115,8 +117,9 @@ function MessagesPage() {
         }
     }, [commissionRequests, user?.username]); 
 
-    const handleAddMessage = (requestId, senderUsername, messageText) => {
-        addMessageToCommissionRequest(requestId, senderUsername, messageText);
+    // 🚨 แก้ไข: เปลี่ยน handleAddMessage ให้เป็น async/await
+    const handleAddMessage = async (requestId, senderUsername, messageText) => {
+        await addMessageToCommissionRequest(requestId, senderUsername, messageText);
     };
 
     const sortedUserRequests = userRequests.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));

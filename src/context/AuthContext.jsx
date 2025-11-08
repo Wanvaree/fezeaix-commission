@@ -207,6 +207,30 @@ export const AuthProvider = ({ children }) => {
         }
     };
     
+    // 🚨 ฟังก์ชันใหม่สำหรับลบข้อความ (ใช้ Firestore)
+    const deleteMessageFromCommissionRequest = async (requestId, messageId) => {
+        try {
+            const requestDocRef = doc(db, "commissions", requestId);
+            const currentRequest = commissionRequests.find(req => req.id === requestId);
+
+            if (!currentRequest) return { success: false, message: "Request not found." };
+
+            // กรองข้อความที่ไม่ต้องการลบ
+            const updatedMessages = currentRequest.messages.filter(msg => msg.id !== messageId);
+
+            // 🚨 อัปเดต Messages ใน Firestore
+            await updateDoc(requestDocRef, {
+                messages: updatedMessages,
+            });
+
+            return { success: true };
+
+        } catch (error) {
+            console.error("Delete message error:", error);
+            return { success: false, message: 'Failed to delete message.' };
+        }
+    };
+    
     const changePassword = async (currentPassword, newPassword) => {
         if (!user) {
             return { success: false, message: 'User not logged in.' };
@@ -250,6 +274,7 @@ export const AuthProvider = ({ children }) => {
         addCommissionRequest,
         deleteCommissionRequest,
         addMessageToCommissionRequest,
+        deleteMessageFromCommissionRequest, // 🚨 เพิ่มฟังก์ชันนี้
         updateCommissionStatus,
         changePassword, 
     };

@@ -4,7 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { FaTrash, FaPaperPlane, FaUserCircle } from 'react-icons/fa';
 
 // Component ย่อยสำหรับหน้าต่างแชท (Admin Side)
-function CommissionChat({ request, currentUser, addMessage }) {
+// 🚨 เพิ่ม deleteMessage prop
+function CommissionChat({ request, currentUser, addMessage, deleteMessage }) { 
     const [messageInput, setMessageInput] = useState('');
     const chatEndRef = useRef(null);
 
@@ -13,13 +14,23 @@ function CommissionChat({ request, currentUser, addMessage }) {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [request.messages]);
 
-    const handleSend = (e) => {
+    // 🚨 แก้ไข: เปลี่ยน handleSend ให้เป็น async
+    const handleSend = async (e) => {
         e.preventDefault();
         if (messageInput.trim()) {
-            addMessage(request.id, currentUser.username, messageInput.trim());
+            // 🚨 ใช้ await เพื่อรอการส่งข้อความ
+            await addMessage(request.id, currentUser.username, messageInput.trim()); 
             setMessageInput('');
         }
     };
+    
+    // 🚨 ฟังก์ชันลบข้อความ
+    const handleDeleteMessage = (messageId) => {
+        if (window.confirm('Are you sure you want to delete this message? It will be removed for both the client and the artist.')) {
+            deleteMessage(request.id, messageId);
+        }
+    };
+
 
     // ใช้ custom-scroll ที่กำหนดใน index.css
     return (
@@ -52,6 +63,16 @@ function CommissionChat({ request, currentUser, addMessage }) {
                             key={msg.id} 
                             className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                         >
+                            {/* 🚨 เพิ่ม: ปุ่มลบข้อความสำหรับ Admin (อยู่ข้างข้อความของตัวเอง) */}
+                            {isCurrentUser && (
+                                <button
+                                    onClick={() => handleDeleteMessage(msg.id)}
+                                    className="mr-2 self-center text-red-400 hover:text-red-600 transition-colors"
+                                    title="Delete Message"
+                                >
+                                    <FaTrash size={12} />
+                                </button>
+                            )}
                             <div className={`max-w-[70%] px-4 py-2 rounded-xl shadow-md ${
                                 isCurrentUser 
                                 ? 'bg-blue-600 text-white rounded-br-none' 
@@ -97,7 +118,8 @@ function CommissionChat({ request, currentUser, addMessage }) {
 
 
 function InboxPage() {
-    const { commissionRequests, deleteCommissionRequest, user, addMessageToCommissionRequest } = useAuth();
+    // 🚨 เพิ่ม deleteMessageFromCommissionRequest
+    const { commissionRequests, deleteCommissionRequest, user, addMessageToCommissionRequest, deleteMessageFromCommissionRequest } = useAuth();
     
     // เรียงลำดับ Requests ก่อนเพื่อเลือกอันล่าสุด
     const sortedRequests = commissionRequests.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -128,10 +150,16 @@ function InboxPage() {
         }
     };
     
-    // ฟังก์ชันส่งต่อการเพิ่มข้อความไปยัง AuthContext
-    const handleAddMessage = (requestId, senderUsername, messageText) => {
-        addMessageToCommissionRequest(requestId, senderUsername, messageText);
+    // 🚨 แก้ไข: เปลี่ยน handleAddMessage ให้เป็น async/await
+    const handleAddMessage = async (requestId, senderUsername, messageText) => {
+        await addMessageToCommissionRequest(requestId, senderUsername, messageText);
     };
+
+    // 🚨 ฟังก์ชันสำหรับลบข้อความ
+    const handleDeleteMessage = async (requestId, messageId) => {
+        await deleteMessageFromCommissionRequest(requestId, messageId);
+    };
+
 
     return (
         <div className="p-6 h-full bg-white rounded-xl shadow-lg flex flex-col">
@@ -196,6 +224,7 @@ function InboxPage() {
                             request={selectedRequest} 
                             currentUser={user}
                             addMessage={handleAddMessage}
+                            deleteMessage={handleDeleteMessage} // 🚨 ส่งฟังก์ชันลบข้อความ
                         />
                     </div>
                 ) : (
