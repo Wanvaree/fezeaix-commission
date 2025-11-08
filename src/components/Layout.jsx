@@ -1,51 +1,112 @@
 // src/components/Layout.jsx
-import React from 'react';
-// 🚨 Import useLocation
-import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom'; 
-import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory } from 'react-icons/fa'; 
+import React, { useState, useRef, useEffect } from 'react'; // 🚨 Import useRef, useEffect
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown } from 'react-icons/fa'; // 🚨 Import FaChevronDown
 import { useAuth } from '../context/AuthContext';
+
+// 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Notification Dropdown)
+function NotificationDropdown({ requests, handleClose }) {
+    const notificationRequests = requests.filter(req => req.status === 'New Request');
+    
+    return (
+        // 🚨 Dropdown Box
+        <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in z-50 border border-gray-200">
+            <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-800">Notifications</h3>
+                <span className="text-sm font-semibold text-red-600">{notificationRequests.length} New</span>
+            </div>
+            
+            {notificationRequests.length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                    No new commission requests.
+                </div>
+            ) : (
+                <div className="max-h-80 overflow-y-auto">
+                    {notificationRequests.map((request) => (
+                        <Link
+                            key={request.id}
+                            to="/dashboard/inbox"
+                            onClick={handleClose}
+                            className="flex flex-col p-3 hover:bg-gray-50 border-b border-gray-100 transition-colors"
+                        >
+                            <p className="text-sm font-semibold text-blue-600 truncate">
+                                {request.requesterUsername} requested {request.commissionType}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Status: <span className="font-medium text-red-600">{request.status}</span>
+                            </p>
+                            <span className="text-xs text-gray-400 mt-1 self-end">
+                                {new Date(request.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                        </Link>
+                    ))}
+                    {/* 🚨 ลิงก์ดูทั้งหมด */}
+                    <Link
+                        to="/dashboard/inbox"
+                        onClick={handleClose}
+                        className="block py-2 text-center text-sm font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
+                    >
+                        View All in Inbox
+                    </Link>
+                </div>
+            )}
+        </div>
+    );
+}
 
 function Layout() {
     const { user, logout, commissionRequests, isAdmin } = useAuth(); 
     const navigate = useNavigate();
-    // 🚨 เรียกใช้ useLocation
     const location = useLocation(); 
+    
+    // 🚨 State สำหรับ Dropdown
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null); // 🚨 Ref สำหรับตรวจจับการคลิกนอก Dropdown
 
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
     
-    // นับจำนวน Commission Request ที่เป็น 'New Request'
     const newRequestsCount = commissionRequests.filter(req => req.status === 'New Request').length;
     
-    // 🚨 ฟังก์ชันใหม่: พา Admin ไปหน้า Inbox
+    // 🚨 ฟังก์ชัน: สลับสถานะ Dropdown
     const handleNotificationClick = () => {
-        // ทำงานเมื่อเป็น Admin เท่านั้น
         if (isAdmin) {
-            navigate('/dashboard/inbox');
+            setIsDropdownOpen(prev => !prev);
         }
     };
     
-    // 🚨 ฟังก์ชันสำหรับกำหนด Class เมื่อเป็น Active Link
+    // 🚨 ฟังก์ชัน: ปิด Dropdown
+    const closeDropdown = () => {
+        setIsDropdownOpen(false);
+    };
+
+    // 🚨 useEffect: ปิด Dropdown เมื่อคลิกที่อื่น
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                closeDropdown();
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [dropdownRef]);
+
+
     const getLinkClasses = (path) => {
-        // ตรวจสอบว่า path ปัจจุบันเริ่มต้นด้วย path ที่กำหนด
         const isActive = location.pathname.startsWith(`/dashboard/${path}`);
         
         return `flex items-center p-3 rounded-lg transition-colors duration-200 ${
             isActive 
-                ? 'bg-blue-700 text-white font-bold shadow-md' // Active State
-                : 'text-blue-200 hover:bg-blue-700 hover:text-white' // Inactive State
+                ? 'bg-blue-700 text-white font-bold shadow-md' 
+                : 'text-blue-200 hover:bg-blue-700 hover:text-white' 
         }`;
     };
 
-    //---------------------------//
-    console.log('Current User:', user);
-    console.log('Is Admin:', isAdmin);
-
     return (
         <div className="flex h-screen bg-gray-100">
-            {/* Sidebar */}
+            {/* Sidebar เดิม */}
             <aside className="w-72 bg-blue-900 text-blue-100 flex flex-col shadow-lg">
                 <div className="p-5 text-2xl font-bold border-b border-blue-800 flex items-center">
                     <FaPaintBrush className="mr-3 text-blue-300" />
@@ -55,13 +116,11 @@ function Layout() {
                 <nav className="flex-1 p-5 overflow-y-auto"> 
                     <ul>
                         <li className="mb-2">
-                            {/* 🚨 ใช้ getLinkClasses */}
                             <Link to="/dashboard/gallery" className={getLinkClasses('gallery')}>
                                 <FaImage className="mr-3 text-blue-300" /> Gallery
                             </Link>
                         </li>
                         <li className="mb-2">
-                            {/* 🚨 ใช้ getLinkClasses */}
                             <Link to="/dashboard/commission" className={getLinkClasses('commission')}>
                                 <FaPaintBrush className="mr-3 text-blue-300" /> Commission
                             </Link>
@@ -70,7 +129,6 @@ function Layout() {
                         {/* Messages Link สำหรับ Client ทุกคน (User ทั่วไป) */}
                         {!isAdmin && ( 
                             <li className="mb-2">
-                                {/* 🚨 ใช้ getLinkClasses */}
                                 <Link to="/dashboard/messages" className={getLinkClasses('messages')}>
                                     <FaComments className="mr-3 text-blue-300" /> Messages
                                 </Link>
@@ -80,7 +138,6 @@ function Layout() {
                         {/* History Link สำหรับ Client ทุกคน (User ทั่วไป) */}
                         {!isAdmin && ( 
                             <li className="mb-2">
-                                {/* 🚨 ใช้ getLinkClasses */}
                                 <Link to="/dashboard/history" className={getLinkClasses('history')}>
                                     <FaHistory className="mr-3 text-blue-300" /> History
                                 </Link>
@@ -90,7 +147,6 @@ function Layout() {
                         {/* แสดง Inbox Link เฉพาะถ้าเป็น Admin */}
                         {isAdmin && (
                             <li className="mb-2">
-                                {/* 🚨 ใช้ getLinkClasses */}
                                 <Link to="/dashboard/inbox" className={getLinkClasses('inbox')}>
                                     <FaInbox className="mr-3 text-blue-300" /> Inbox
                                     {newRequestsCount > 0 && (
@@ -102,13 +158,11 @@ function Layout() {
                             </li>
                         )}
                         <li className="mb-2">
-                            {/* 🚨 ใช้ getLinkClasses */}
                             <Link to="/dashboard/queue" className={getLinkClasses('queue')}>
                                 <FaListAlt className="mr-3 text-blue-300" /> Queue
                             </Link>
                         </li>
                         <li className="mb-2">
-                            {/* 🚨 ใช้ getLinkClasses */}
                             <Link to="/dashboard/settings" className={getLinkClasses('settings')}>
                                 <FaCog className="mr-3 text-blue-300" /> Settings
                             </Link>
@@ -128,21 +182,29 @@ function Layout() {
                 <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm z-10">
                     <h1 className="text-xl font-semibold text-gray-800">Welcome, {user ? user.username : 'Guest'}!</h1>
                     <div className="flex items-center space-x-4">
-                        {/* แสดง Notification Bell พร้อม Badge เฉพาะ Admin */}
+                        {/* 🚨 Notification Dropdown Area */}
                         {isAdmin && (
-                            <button 
-                                // 🚨 เพิ่ม onClick event
-                                onClick={handleNotificationClick} 
-                                className={`relative transition-colors cursor-pointer ${newRequestsCount > 0 ? 'text-red-500 hover:text-red-600' : 'text-gray-500 hover:text-blue-600'}`}
-                                title={newRequestsCount > 0 ? `${newRequestsCount} New Request(s)` : 'No new notifications'}
-                            >
-                                <FaBell className="text-xl" />
-                                {newRequestsCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full">
-                                        {newRequestsCount}
-                                    </span>
+                            <div className="relative" ref={dropdownRef}>
+                                <button 
+                                    onClick={handleNotificationClick} 
+                                    className={`relative p-2 rounded-full transition-colors ${newRequestsCount > 0 ? 'text-red-500 hover:text-red-600 bg-red-50' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'}`}
+                                    title={newRequestsCount > 0 ? `${newRequestsCount} New Request(s)` : 'No new notifications'}
+                                >
+                                    <FaBell className="text-xl" />
+                                    {newRequestsCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                                            {newRequestsCount}
+                                        </span>
+                                    )}
+                                </button>
+                                
+                                {isDropdownOpen && (
+                                    <NotificationDropdown 
+                                        requests={commissionRequests} 
+                                        handleClose={closeDropdown} 
+                                    />
                                 )}
-                            </button>
+                            </div>
                         )}
                     </div>
                 </header>
