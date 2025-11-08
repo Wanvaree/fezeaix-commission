@@ -62,8 +62,8 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
                             key={msg.id} 
                             className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                         >
-                            {/* 🚨 โค้ดที่แก้ไข: เพิ่ม div ครอบปุ่มลบและ Bubble ข้อความ */}
-                            <div className={`flex items-end max-w-[80%] relative ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                            {/* 🚨 โค้ดที่แก้ไข: เพิ่ม div ครอบปุ่มลบและ Bubble ข้อความ (max-w-[70%]) */}
+                            <div className={`flex items-end max-w-[70%] relative ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
                                 
                                 {/* 2. Bubble ข้อความ */}
                                 <div className={`px-4 py-2 rounded-xl shadow-md ${
@@ -84,11 +84,9 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
                                 {isCurrentUser && (
                                     <button
                                         onClick={() => handleDeleteMessage(msg.id)}
-                                        // 🚨 ใช้ absolute positioning เพื่อป้องกันการดันเนื้อหา
-                                        className="absolute bottom-0 p-1 text-red-400 hover:text-red-600 transition-colors flex-shrink-0" 
-                                        // 🚨 ตำแหน่ง: ซ้าย (สำหรับ Admin Message ที่อยู่ขวา)
-                                        style={{ left: '-20px' }} 
+                                        className="mb-1 p-1 text-red-400 hover:text-red-600 transition-colors flex-shrink-0" 
                                         title="Delete Message"
+                                        style={{ left: '-20px' }} 
                                     >
                                         <FaTrash size={12} />
                                     </button>
