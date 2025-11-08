@@ -2,12 +2,18 @@
   "name": "fezeaix-commission",
   "private": true,
   "version": "0.0.0",
+  
+  "homepage": "https://wanvaree.github.io/fezeaix-commission",
+  
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "react": "^19.1.1",
