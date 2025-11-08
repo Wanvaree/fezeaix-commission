@@ -1,5 +1,5 @@
 // src/context/AuthContext.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'; // 🚨 Import useRef
 // 🚨 Import Firestore Functions และ db
 import { 
     db, 
@@ -27,6 +27,9 @@ export const AuthProvider = ({ children }) => {
     // 🚨 States ใหม่สำหรับข้อมูลที่ดึงจาก Firestore
     const [commissionRequests, setCommissionRequests] = useState([]);
     const [allRegisteredUsers, setAllRegisteredUsers] = useState([]); // สำหรับตรวจสอบตอน Register/Login
+    
+    // 🚨 1. Ref สำหรับเก็บสถานะเก่าของ Requests
+    const requestsRef = useRef([]); 
 
     // -----------------------------------------------------------
     // 1. useEffect สำหรับ User State (ยังใช้ Local Storage สำหรับ Session)
@@ -60,15 +63,46 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const unsubscribe = onSnapshot(commissionsCollectionRef, (snapshot) => {
             const requestsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            
+            // 🚨🚨 Logic การแจ้งเตือน 🚨🚨
+            if (user && user.role === 'admin' && requestsRef.current.length > 0 && requestsData.length > 0) {
+                
+                // 1. ตรวจสอบ New Request ใหม่ (ID ใหม่)
+                const newRequests = requestsData.filter(
+                    newReq => !requestsRef.current.some(oldReq => oldReq.id === newReq.id)
+                );
+
+                // 2. ตรวจสอบข้อความใหม่ใน Request เดิม
+                let newMessageFound = false;
+                requestsData.forEach(newReq => {
+                    const oldReq = requestsRef.current.find(r => r.id === newReq.id);
+                    // ถ้าจำนวนข้อความเพิ่มขึ้น
+                    if (oldReq && newReq.messages.length > oldReq.messages.length) {
+                         const lastMessage = newReq.messages[newReq.messages.length - 1];
+                         // 🚨 เล่นเสียงถ้าข้อความใหม่มาจาก Client (ไม่ใช่ System หรือ Admin เอง)
+                         if (lastMessage.sender !== 'System' && lastMessage.sender !== user.username) {
+                             newMessageFound = true;
+                         }
+                    }
+                });
+
+                if (newRequests.length > 0 || newMessageFound) {
+                     const audio = new Audio('/notification.mp3'); // 🚨 Path ไปไฟล์เสียง
+                     audio.play().catch(e => console.log("Audio playback blocked", e));
+                }
+            }
+            
+            requestsRef.current = requestsData; // 🚨 อัปเดต Ref
             setCommissionRequests(requestsData);
+
         }, (error) => {
             console.error("Error fetching commissions:", error);
         });
 
         // Cleanup function
         return () => unsubscribe();
-    }, []);
-
+    // 🚨 user ถูกเพิ่มเป็น Dependency
+    }, [user]); 
 
     // -----------------------------------------------------------
     // 4. Auth Logic (ใช้ Firestore)
