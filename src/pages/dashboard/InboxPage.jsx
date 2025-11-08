@@ -47,10 +47,10 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
                     const isSystem = msg.sender === 'System';
                     
                     if (isSystem) {
-                         // 🚨 แก้ไข: จัดกึ่งกลางและมีขอบเขตที่ชัดเจน
+                         // 🚨 แก้ไข: เปลี่ยน max-w-lg เป็น max-w-xs และจัดกึ่งกลาง
                          return (
                             <div key={msg.id} className="flex justify-center w-full"> 
-                                <div className="text-center text-xs text-gray-400 italic max-w-lg p-2 rounded-lg bg-gray-50 border border-gray-200">
+                                <div className="text-center text-xs text-gray-400 italic max-w-xs p-2 rounded-lg bg-gray-50 border border-gray-200">
                                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {msg.text}
                                 </div>
                             </div>
@@ -189,7 +189,7 @@ function InboxPage() {
                                     <div 
                                         key={request.id} 
                                         onClick={() => setSelectedRequest(request)}
-                                        // 🚨 เพิ่ม overflow-hidden และ break-words ที่ div ครอบรายการเพื่อจัดการข้อความยาวๆ
+                                        // 🚨 เพิ่ม overflow-hidden และ break-words ใน Container รายการ
                                         className={`p-4 rounded-lg shadow-sm border transition-all duration-200 cursor-pointer overflow-hidden break-words ${
                                             isSelected ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-500' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                         } flex items-center justify-between`}
