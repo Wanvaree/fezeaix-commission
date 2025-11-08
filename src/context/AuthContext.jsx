@@ -1,79 +1,119 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
+// 🚨 Import Firestore Functions และ db
+import { 
+    db, 
+    collection, 
+    getDocs, 
+    doc, 
+    setDoc, 
+    updateDoc, 
+    query, 
+    where, 
+    onSnapshot,
+    deleteDoc
+} from '../firebaseConfig'; 
 
-// 1. สร้าง Context สำหรับ Auth และ Commission (รวมกัน)
 const AuthContext = createContext(null);
+export const useAuth = () => useContext(AuthContext);
 
-// 2. Custom Hook สำหรับเรียกใช้ Context
-export const useAuth = () => {
-    return useContext(AuthContext);
-};
+// Collections References
+const usersCollectionRef = collection(db, "users");
+const commissionsCollectionRef = collection(db, "commissions");
 
-// 3. Provider Component ที่จะห่อหุ้ม App ของเรา
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    // 🚨 States ใหม่สำหรับข้อมูลที่ดึงจาก Firestore
+    const [commissionRequests, setCommissionRequests] = useState([]);
+    const [allRegisteredUsers, setAllRegisteredUsers] = useState([]); // สำหรับตรวจสอบตอน Register/Login
 
-    // State สำหรับผู้ใช้งานที่ลงทะเบียน
-    const [registeredUsers, setRegisteredUsers] = useState(() => {
-        const storedUsers = localStorage.getItem('registeredUsers');
-        return storedUsers ? JSON.parse(storedUsers) : [];
-    });
-
-    // State สำหรับ Commission Requests
-    const [commissionRequests, setCommissionRequests] = useState(() => {
-        const storedRequests = localStorage.getItem('commissionRequests');
-        return storedRequests ? JSON.parse(storedRequests) : [];
-    });
-
+    // -----------------------------------------------------------
+    // 1. useEffect สำหรับ User State (ยังใช้ Local Storage สำหรับ Session)
+    // -----------------------------------------------------------
     useEffect(() => {
         const storedUser = localStorage.getItem('currentUser');
         if (storedUser) {
-            // โหลด user object (ต้องมี role ด้วย)
             setUser(JSON.parse(storedUser));
         }
         setLoading(false);
     }, []);
 
+    // -----------------------------------------------------------
+    // 2. useEffect สำหรับ Fetch/Listen ข้อมูลผู้ใช้ทั้งหมด (สำหรับ Register/Login Logic)
+    // -----------------------------------------------------------
     useEffect(() => {
-        localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
-    }, [registeredUsers]);
+        const unsubscribe = onSnapshot(usersCollectionRef, (snapshot) => {
+            const usersData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            setAllRegisteredUsers(usersData);
+        }, (error) => {
+            console.error("Error fetching users:", error);
+        });
 
-    // เพิ่ม useEffect สำหรับบันทึก commissionRequests ลง localStorage
+        // Cleanup function
+        return () => unsubscribe();
+    }, []);
+
+    // -----------------------------------------------------------
+    // 3. useEffect สำหรับ Fetch/Listen Commission Requests (Realtime)
+    // -----------------------------------------------------------
     useEffect(() => {
-        localStorage.setItem('commissionRequests', JSON.stringify(commissionRequests));
-    }, [commissionRequests]);
+        const unsubscribe = onSnapshot(commissionsCollectionRef, (snapshot) => {
+            const requestsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            setCommissionRequests(requestsData);
+        }, (error) => {
+            console.error("Error fetching commissions:", error);
+        });
+
+        // Cleanup function
+        return () => unsubscribe();
+    }, []);
 
 
-    const register = (username, password) => {
-        const userExists = registeredUsers.some(u => u.username === username);
-        if (userExists) {
-            return { success: false, message: 'Username already exists.' };
+    // -----------------------------------------------------------
+    // 4. Auth Logic (ใช้ Firestore)
+    // -----------------------------------------------------------
+
+    const register = async (username, password) => {
+        try {
+            const userExists = allRegisteredUsers.some(u => u.username === username);
+            if (userExists) {
+                return { success: false, message: 'Username already exists.' };
+            }
+
+            const newUser = {
+                username,
+                password, 
+                role: username.toLowerCase() === 'fezeaix' ? 'admin' : 'user'
+            };
+
+            // 🚨 บันทึกผู้ใช้ใหม่ลงใน Firestore
+            await setDoc(doc(db, "users", username), newUser); // ใช้ username เป็น Document ID
+
+            return { success: true, message: 'Registration successful! Please login.' };
+        } catch (error) {
+            console.error("Registration error:", error);
+            return { success: false, message: 'Registration failed due to server error.' };
         }
-
-        // กำหนด role: 'admin' ถ้า username เป็น 'Fezeaix'
-        // ไม่งั้นเป็น 'user' ปกติ
-        const newUser = {
-            username,
-            password,
-            role: username.toLowerCase() === 'fezeaix' ? 'admin' : 'user'
-        };
-        setRegisteredUsers(prevUsers => [...prevUsers, newUser]);
-        return { success: true, message: 'Registration successful! Please login.' };
     };
 
-    const login = (username, password) => {
-        const foundUser = registeredUsers.find(
-            u => u.username === username && u.password === password
-        );
+    const login = async (username, password) => {
+        try {
+            // ไม่ต้อง Query, ใช้ข้อมูลที่ onSnapshot ดึงมาแล้ว
+            const foundUser = allRegisteredUsers.find(
+                u => u.username === username && u.password === password
+            );
 
-        if (foundUser) {
-            setUser(foundUser);
-            // บันทึก User Object ที่มี role ลง Local Storage
-            localStorage.setItem('currentUser', JSON.stringify(foundUser)); 
-            return { success: true, message: 'Login successful!' };
-        } else {
-            return { success: false, message: 'Invalid username or password.' };
+            if (foundUser) {
+                setUser(foundUser);
+                localStorage.setItem('currentUser', JSON.stringify(foundUser)); 
+                return { success: true, message: 'Login successful!' };
+            } else {
+                return { success: false, message: 'Invalid username or password.' };
+            }
+        } catch (error) {
+             console.error("Login error:", error);
+             return { success: false, message: 'Login failed due to server error.' };
         }
     };
 
@@ -81,95 +121,121 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         localStorage.removeItem('currentUser');
     };
+    
+    // -----------------------------------------------------------
+    // 5. Commission & Message Logic (ใช้ Firestore)
+    // -----------------------------------------------------------
 
-    const addCommissionRequest = (requestDetails) => {
-        const newRequest = {
-            id: Date.now(),
-            ...requestDetails,
-            status: 'New Request',
-            timestamp: new Date().toISOString(),
-            messages: [{ // เพิ่ม messages array และใส่ข้อความเริ่มต้น
-                id: Date.now() + 1,
-                sender: 'System',
-                text: `New Commission Request for ${requestDetails.commissionType} received. Price: $${requestDetails.price}. The artist will contact you via this chat to confirm details.`,
+    const addCommissionRequest = async (requestDetails) => {
+        try {
+            const newRequest = {
+                id: Date.now().toString(), // ใช้ string เป็น ID ชั่วคราว (Firestore จะสร้าง ID จริงให้)
+                ...requestDetails,
+                status: 'New Request',
                 timestamp: new Date().toISOString(),
-            }],
-        };
-        setCommissionRequests(prevRequests => [...prevRequests, newRequest]);
-        return { success: true, message: 'Commission request submitted successfully! Please check your Messages for updates from the artist.' };
+                messages: [{ 
+                    id: Date.now() + 1,
+                    sender: 'System',
+                    text: `New Commission Request for ${requestDetails.commissionType} received. Price: $${requestDetails.price}. The artist will contact you via this chat to confirm details.`,
+                    timestamp: new Date().toISOString(),
+                }],
+            };
+
+            // 🚨 เพิ่ม Request ลงใน Firestore
+            await setDoc(doc(commissionsCollectionRef), newRequest); 
+            
+            return { success: true, message: 'Commission request submitted successfully! Please check your Messages for updates from the artist.' };
+        } catch (error) {
+            console.error("Add commission error:", error);
+            return { success: false, message: 'Failed to submit commission request.' };
+        }
     };
 
-    const deleteCommissionRequest = (requestId) => {
-        setCommissionRequests(prevRequests => prevRequests.filter(req => req.id !== requestId));
-        return { success: true, message: 'Commission request deleted.' };
+    const deleteCommissionRequest = async (requestId) => {
+        try {
+            // 🚨 ลบ Document จาก Firestore
+            await deleteDoc(doc(db, "commissions", requestId));
+            return { success: true, message: 'Commission request deleted.' };
+        } catch (error) {
+            console.error("Delete commission error:", error);
+            return { success: false, message: 'Failed to delete commission request.' };
+        }
     };
 
-    // ฟังก์ชันสำหรับ Admin ในการอัพเดทสถานะ
-    const updateCommissionStatus = (requestId, newStatus) => {
-        setCommissionRequests(prevRequests => prevRequests.map(req => {
-            if (req.id === requestId) {
-                return {
-                    ...req,
-                    status: newStatus,
-                    timestamp: new Date().toISOString(), 
-                };
-            }
-            return req;
-        }));
-        return { success: true, message: 'Commission status updated.' };
+    const updateCommissionStatus = async (requestId, newStatus) => {
+        try {
+            const requestDocRef = doc(db, "commissions", requestId);
+            // 🚨 อัปเดต Status ใน Firestore
+            await updateDoc(requestDocRef, {
+                status: newStatus,
+                timestamp: new Date().toISOString(),
+            });
+            return { success: true, message: 'Commission status updated.' };
+        } catch (error) {
+            console.error("Update status error:", error);
+            return { success: false, message: 'Failed to update commission status.' };
+        }
     };
 
-    // ฟังก์ชันใหม่สำหรับเพิ่มข้อความแชท
-    const addMessageToCommissionRequest = (requestId, senderUsername, messageText) => {
+    const addMessageToCommissionRequest = async (requestId, senderUsername, messageText) => {
         if (!messageText.trim()) return;
 
-        setCommissionRequests(prevRequests => prevRequests.map(req => {
-            if (req.id === requestId) {
-                const newMessage = {
-                    id: Date.now() + Math.random(),
-                    sender: senderUsername,
-                    text: messageText,
-                    timestamp: new Date().toISOString(),
-                };
-                return {
-                    ...req,
-                    messages: [...(req.messages || []), newMessage], 
-                    status: req.status === 'New Request' ? 'In Discussion' : req.status
-                };
-            }
-            return req;
-        }));
-        return { success: true };
+        try {
+            const requestDocRef = doc(db, "commissions", requestId);
+            const currentRequest = commissionRequests.find(req => req.id === requestId);
+
+            if (!currentRequest) return { success: false };
+
+            const newMessage = {
+                id: Date.now() + Math.random(),
+                sender: senderUsername,
+                text: messageText,
+                timestamp: new Date().toISOString(),
+            };
+
+            // 🚨 อัปเดต Messages และ Status ใน Firestore
+            await updateDoc(requestDocRef, {
+                messages: [...(currentRequest.messages || []), newMessage], 
+                status: currentRequest.status === 'New Request' ? 'In Discussion' : currentRequest.status
+            });
+
+            return { success: true };
+
+        } catch (error) {
+            console.error("Add message error:", error);
+            return { success: false };
+        }
     };
     
-    // <--- ฟังก์ชันเปลี่ยนรหัสผ่านใหม่ --->
-    const changePassword = (currentPassword, newPassword) => {
+    const changePassword = async (currentPassword, newPassword) => {
         if (!user) {
             return { success: false, message: 'User not logged in.' };
         }
         
-        // 1. ตรวจสอบรหัสผ่านปัจจุบัน
-        if (user.password !== currentPassword) {
-            return { success: false, message: 'Current password is incorrect.' };
-        }
-
-        // 2. อัปเดตใน registeredUsers
-        const updatedUsers = registeredUsers.map(u => {
-            if (u.username === user.username) {
-                return { ...u, password: newPassword };
+        try {
+             // 1. ตรวจสอบรหัสผ่านปัจจุบัน
+            if (user.password !== currentPassword) {
+                return { success: false, message: 'Current password is incorrect.' };
             }
-            return u;
-        });
-        setRegisteredUsers(updatedUsers);
 
-        // 3. อัปเดตใน currentUser state และ Local Storage
-        const updatedUser = { ...user, password: newPassword };
-        setUser(updatedUser);
-        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-        
-        return { success: true, message: 'Password updated successfully!' };
+            const userDocRef = doc(db, "users", user.username);
+            
+            // 🚨 อัปเดต Password ใน Firestore
+            await updateDoc(userDocRef, {
+                password: newPassword
+            });
+
+            // 3. อัปเดตใน currentUser state และ Local Storage
+            const updatedUser = { ...user, password: newPassword };
+            setUser(updatedUser);
+            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            
+            return { success: true, message: 'Password updated successfully!' };
+        } catch (error) {
+             console.error("Change password error:", error);
+             return { success: false, message: 'Failed to change password.' };
+        }
     };
-    // <--- สิ้นสุดฟังก์ชันเปลี่ยนรหัสผ่านใหม่ --->
 
 
     const value = {
@@ -179,13 +245,13 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         isAuthenticated: !!user,
-        isAdmin: user && user.role === 'admin', // ตรวจสอบบทบาท
-        commissionRequests,
+        isAdmin: user && user.role === 'admin', 
+        commissionRequests, 
         addCommissionRequest,
         deleteCommissionRequest,
         addMessageToCommissionRequest,
         updateCommissionStatus,
-        changePassword, // <--- เพิ่มตัวนี้
+        changePassword, 
     };
 
     return (
