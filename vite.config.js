@@ -2,10 +2,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
-import fs from 'fs'; // Import Node.js Module 'fs'
-import path from 'path'; // Import Node.js Module 'path'
+import fs from 'fs'; 
+import path from 'path'; 
 
-// ชื่อ Repository ของคุณ (ยังคงใช้ใน manifest.start_url)
+// ชื่อ Repository ของคุณ
 const repoName = 'fezeaix-commission'; 
 
 // ฟังก์ชันสำหรับคัดลอก index.html ไปเป็น 404.html
@@ -24,8 +24,9 @@ const copyIndexTo404Plugin = () => ({
 
 
 export default defineConfig({
-  // 🚨 แก้ไข: เปลี่ยน Base Path เป็น Path สัมพัทธ์ (Relative Path) เพื่อแก้ปัญหา Asset Loading 404
-  base: './', 
+  // 🚨 แก้ไข: เปลี่ยน Base Path กลับไปเป็น Absolute Path
+  // เมื่อใช้ <base href> ใน index.html, การใช้ Base Path ที่นี่จะถูกต้องกว่า
+  base: `/${repoName}/`, 
   
   // แก้ไข: เพิ่ม build object เพื่อเพิ่มขีดจำกัด Warning Size
   build: {
@@ -39,7 +40,6 @@ export default defineConfig({
       injectRegister: 'auto',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg}'],
-        // แก้ไข: เพิ่มขีดจำกัด PWA
         maximumFileSizeToCacheInBytes: 100 * 1024 * 1024, 
       },
       manifest: {
@@ -47,7 +47,6 @@ export default defineConfig({
         short_name: 'Fezeaix',
         description: 'Fezeaix Artist Commission Dashboard',
         theme_color: '#1e3a8a', 
-        // 🚨 start_url ยังคงต้องเป็น Absolute Path เพื่อให้ PWA ถูกต้อง
         start_url: `/${repoName}/`, 
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },

@@ -2,12 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- 🚨 แก้ไข: ใส่ Base Path ใน <head> เพื่อให้ Asset Loading ถูกต้อง -->
+    <base href="/fezeaix-commission/" />
+    
+    <!-- 🚨 แก้ไข: ใช้ Path เต็มสำหรับ Icon (ถ้ามี) -->
+    <link rel="icon" type="image/svg+xml" href="/fezeaix-commission/vite.svg" /> 
+    
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>fezeaix-commission</title>
   </head>
   <body>
     <div id="root"></div>
+    <!-- 🚨 src ของ script จะถูกแก้ไขโดย Vite เมื่อ Build -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
