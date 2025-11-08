@@ -1,30 +1,29 @@
 // src/pages/dashboard/QueuePage.jsx
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { FaEdit, FaTrash, FaCheckCircle, FaSpinner } from 'react-icons/fa'; // Import FaSpinner
+import { FaEdit, FaTrash, FaCheckCircle, FaSpinner } from 'react-icons/fa'; 
 
-// สถานะที่เป็นไปได้สำหรับงาน
+// 🚨 แก้ไข: เรียงลำดับสถานะตามความต้องการ
 const STATUS_OPTIONS = [
     'New Request',
-    'In Discussion',
     'Pending Payment',
     'In Progress',
     'Sketch Sent',
-    'Revisions',
     'Completed',
-    'On Hold',
     'Canceled',
+    'On Hold',
+    // 'In Discussion' ถูกลบออกตามคำขอ
+    // 'Revisions' ถูกลบออกตามคำขอ
 ];
 
-// ฟังก์ชันสำหรับกำหนดสีตามสถานะ
+// ฟังก์ชันสำหรับกำหนดสีตามสถานะ (คงเดิม)
 const getStatusClasses = (status) => {
     switch (status) {
         case 'New Request': return 'bg-red-100 text-red-800 border-red-300';
-        case 'In Discussion': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        // ... (โค้ดสีอื่นๆ คงเดิม)
         case 'Pending Payment': return 'bg-orange-100 text-orange-800 border-orange-300';
         case 'In Progress': return 'bg-blue-100 text-blue-800 border-blue-300';
         case 'Sketch Sent': return 'bg-indigo-100 text-indigo-800 border-indigo-300';
-        case 'Revisions': return 'bg-purple-100 text-purple-800 border-purple-300';
         case 'Completed': return 'bg-green-100 text-green-800 border-green-300';
         case 'On Hold': return 'bg-gray-100 text-gray-800 border-gray-300';
         case 'Canceled': return 'bg-gray-200 text-gray-500 border-gray-400';
@@ -32,80 +31,74 @@ const getStatusClasses = (status) => {
     }
 };
 
-// Component สำหรับ Admin ในการแก้ไขสถานะ
+// Component สำหรับ Admin ในการแก้ไขสถานะ (ปรับปรุงให้แสดงปุ่มแยก)
 function AdminEditStatus({ request, updateStatus, deleteRequest }) {
     const [isEditing, setIsEditing] = useState(false);
-    const [isUpdating, setIsUpdating] = useState(false); // 🚨 เพิ่ม State สำหรับ Loading
+    const [isUpdating, setIsUpdating] = useState(false);
     const [newStatus, setNewStatus] = useState(request.status);
 
-    const handleUpdate = async () => { // 🚨 เปลี่ยนเป็น async
+    const handleUpdate = async () => {
         setIsUpdating(true);
-        // 🚨 ใช้ await
         await updateStatus(request.id, newStatus); 
         setIsUpdating(false);
         setIsEditing(false);
     };
     
-    const handleDelete = async () => { // 🚨 เปลี่ยนเป็น async
-        if (window.confirm(`Are you sure you want to permanently delete the commission from ${request.requesterUsername}?`)) {
-            setIsUpdating(true);
-            // 🚨 ใช้ await
-            await deleteRequest(request.id);
-            setIsUpdating(false);
-        }
-    };
-
-    return (
-        <div className="flex items-center space-x-2">
-            {isUpdating ? ( // 🚨 แสดง Loading Spinner เมื่อกำลังอัปเดต
+    // 🚨 ย้ายปุ่ม Edit/Delete ไปอยู่ใน Component แยกต่างหาก
+    if (isUpdating) { 
+        return (
+            <div className="flex items-center justify-center">
                 <FaSpinner className="animate-spin text-blue-500" size={16} title="Updating..." />
-            ) : isEditing ? (
-                <>
-                    <select
-                        value={newStatus}
-                        onChange={(e) => setNewStatus(e.target.value)}
-                        className={`p-1 text-sm border rounded ${getStatusClasses(newStatus)} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                    >
-                        {STATUS_OPTIONS.map(status => (
-                            <option key={status} value={status}>{status}</option>
-                        ))}
-                    </select>
-                    <button 
-                        onClick={handleUpdate} 
-                        className="p-1 bg-green-500 hover:bg-green-600 text-white rounded transition-colors"
-                        title="Save Status"
-                    >
-                        <FaCheckCircle size={14} />
-                    </button>
-                    <button 
-                        onClick={() => setIsEditing(false)} 
-                        className="p-1 bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors"
-                        title="Cancel"
-                    >
-                        &times;
-                    </button>
-                </>
-            ) : (
-                <>
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusClasses(request.status)}`}>
-                        {request.status}
-                    </span>
-                    <button 
-                        onClick={() => setIsEditing(true)} 
-                        className="p-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                        title="Edit Status"
-                    >
-                        <FaEdit size={14} />
-                    </button>
-                    <button 
-                        onClick={handleDelete} 
-                        className="p-1 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
-                        title="Delete Request"
-                    >
-                        <FaTrash size={14} />
-                    </button>
-                </>
-            )}
+            </div>
+        );
+    }
+    
+    if (isEditing) {
+        return (
+            <div className="flex items-center space-x-2">
+                <select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                    className={`p-1 text-sm border rounded ${getStatusClasses(newStatus)} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                >
+                    {STATUS_OPTIONS.map(status => (
+                        <option key={status} value={status}>{status}</option>
+                    ))}
+                </select>
+                <button 
+                    onClick={handleUpdate} 
+                    className="p-1 bg-green-500 hover:bg-green-600 text-white rounded transition-colors"
+                    title="Save Status"
+                >
+                    <FaCheckCircle size={14} />
+                </button>
+                <button 
+                    onClick={() => setIsEditing(false)} 
+                    className="p-1 bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors"
+                    title="Cancel"
+                >
+                    &times;
+                </button>
+            </div>
+        );
+    }
+    
+    return (
+        <div className="flex items-center justify-center space-x-2">
+            <button 
+                onClick={() => setIsEditing(true)} 
+                className="p-1 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                title="Edit Status"
+            >
+                <FaEdit size={14} />
+            </button>
+            <button 
+                onClick={deleteRequest} // ใช้ deleteRequest ที่ส่งมาเป็น prop
+                className="p-1 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                title="Delete Request"
+            >
+                <FaTrash size={14} />
+            </button>
         </div>
     );
 }
@@ -115,8 +108,15 @@ function QueuePage() {
     const { commissionRequests, isAdmin, updateCommissionStatus, deleteCommissionRequest } = useAuth();
     
     // เรียงลำดับงานตามวันที่ (ใหม่สุดมาก่อน)
-    // 🚨 แก้ไข: เรียงตาม ID เพื่อให้ New Request มาก่อน (หรือจะคงตาม timestamp เดิมก็ได้)
     const sortedRequests = commissionRequests.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // 🚨 ฟังก์ชันสำหรับ Admin เพื่อ Delete
+    const handleDeleteRequest = (requestId, requesterUsername) => {
+        if (window.confirm(`Are you sure you want to permanently delete the commission from ${requesterUsername}?`)) {
+            deleteCommissionRequest(requestId);
+        }
+    };
+
 
     return (
         <div className="p-6 bg-white rounded-xl shadow-lg min-h-full">
@@ -147,7 +147,8 @@ function QueuePage() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Price
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                {/* 🚨 Header Status (คงเดิม) */}
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> 
                                     Status
                                 </th>
                                 {isAdmin && (
@@ -172,23 +173,31 @@ function QueuePage() {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-bold">
                                         ${request.price}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium"> 
-                                        {isAdmin ? (
-                                            <AdminEditStatus 
-                                                request={request}
-                                                updateStatus={updateCommissionStatus}
-                                                deleteRequest={deleteCommissionRequest}
-                                            />
-                                        ) : (
+                                    {/* 🚨 คอลัมน์ Status */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {/* 🚨 ถ้าไม่ใช่ Admin ให้แสดงแค่ Badge Status */}
+                                        {!isAdmin && (
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusClasses(request.status)}`}>
                                                 {request.status}
                                             </span>
                                         )}
+                                        {/* 🚨 ถ้าเป็น Admin และอยู่ในโหมดแก้ไข ให้แสดง Select Box */}
+                                        {isAdmin && request.status !== 'Editing' && ( // เพิ่มเงื่อนไขป้องกันการแสดงซ้ำซ้อน
+                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full border ${getStatusClasses(request.status)}`}>
+                                                {request.status}
+                                            </span>
+                                        )}
                                     </td>
+
+                                    {/* 🚨 คอลัมน์ Actions */}
                                     {isAdmin && (
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                                            {/* 🚨 ลบส่วนนี้ออก เพราะเราย้าย Actions เข้าไปใน AdminEditStatus แล้ว */}
-                                            {/* <AdminEditStatus ... /> */}
+                                            <AdminEditStatus 
+                                                request={request}
+                                                updateStatus={updateCommissionStatus}
+                                                // 🚨 ใช้ฟังก์ชัน handleDeleteRequest ที่รวมเอา confirm/delete ไว้แล้ว
+                                                deleteRequest={() => handleDeleteRequest(request.id, request.requesterUsername)}
+                                            />
                                         </td>
                                     )}
                                 </tr>
