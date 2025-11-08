@@ -47,7 +47,7 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
                     const isSystem = msg.sender === 'System';
                     
                     if (isSystem) {
-                         // 🚨 โค้ดที่แก้ไข: จัดกึ่งกลางและมีขอบเขตที่ชัดเจน
+                         // 🚨 แก้ไข: จัดกึ่งกลางและมีขอบเขตที่ชัดเจน
                          return (
                             <div key={msg.id} className="flex justify-center w-full"> 
                                 <div className="text-center text-xs text-gray-400 italic max-w-lg p-2 rounded-lg bg-gray-50 border border-gray-200">
@@ -124,7 +124,6 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
 
 
 function InboxPage() {
-    // 🚨 แก้ไข: เพิ่ม deleteMessageFromCommissionRequest
     const { commissionRequests, deleteCommissionRequest, user, addMessageToCommissionRequest, deleteMessageFromCommissionRequest } = useAuth();
     
     // เรียงลำดับ Requests ก่อนเพื่อเลือกอันล่าสุด
@@ -156,12 +155,10 @@ function InboxPage() {
         }
     };
     
-    // 🚨 แก้ไข: เปลี่ยน handleAddMessage ให้เป็น async/await
     const handleAddMessage = async (requestId, senderUsername, messageText) => {
         await addMessageToCommissionRequest(requestId, senderUsername, messageText);
     };
 
-    // 🚨 ฟังก์ชันสำหรับลบข้อความ
     const handleDeleteMessage = async (requestId, messageId) => {
         await deleteMessageFromCommissionRequest(requestId, messageId);
     };
@@ -192,11 +189,12 @@ function InboxPage() {
                                     <div 
                                         key={request.id} 
                                         onClick={() => setSelectedRequest(request)}
-                                        className={`p-4 rounded-lg shadow-sm border transition-all duration-200 cursor-pointer ${
+                                        // 🚨 เพิ่ม overflow-hidden และ break-words ที่ div ครอบรายการเพื่อจัดการข้อความยาวๆ
+                                        className={`p-4 rounded-lg shadow-sm border transition-all duration-200 cursor-pointer overflow-hidden break-words ${
                                             isSelected ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-500' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                         } flex items-center justify-between`}
                                     >
-                                        <div className="flex-1 mr-4">
+                                        <div className="flex-1 mr-4 break-words">
                                             <p className="font-semibold text-gray-800 text-lg">
                                                 <span className="text-blue-600">{request.requesterUsername}</span> requested <span className="text-purple-600">{request.commissionType}</span>
                                             </p>
