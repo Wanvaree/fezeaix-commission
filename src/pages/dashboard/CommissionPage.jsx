@@ -4,14 +4,15 @@ import { useAuth } from '../../context/AuthContext';
 import { FaChevronLeft, FaChevronRight, FaHeart, FaTimes } from 'react-icons/fa'; // Import icons
 
 // 🚨 Import รูปภาพที่จำเป็นสำหรับรายการใหม่
-import art1_1 from '../../assets/images/art1.1.png';
-import art3 from '../../assets/images/art3.png';
-import art6 from '../../assets/images/art6.png';
-import art11 from '../../assets/images/art11.png';
-import art13 from '../../assets/images/art13.png';
-import art17 from '../../assets/images/art17.png';
+import art6_1 from '../../assets/images/art6.1.png';
+import art7_2 from '../../assets/images/art7.2.png';
+import art12 from '../../assets/images/art12.png';
+import art14 from '../../assets/images/art14.jpg';
+import art15 from '../../assets/images/art15.png';
+import art16_1 from '../../assets/images/art16.1.png';
+import art16 from '../../assets/images/art16.png';
 
-// 🚨 Import รูปภาพจากรายการก่อนหน้า (ถ้ายังต้องการใช้)
+// 🚨 Import รูปภาพจากรายการก่อนหน้า (ต้องคงไว้)
 import art2 from '../../assets/images/art2.png'; 
 import art7 from '../../assets/images/art7.png'; 
 import art8 from '../../assets/images/art8.png'; 
@@ -20,20 +21,19 @@ import art10_1 from '../../assets/images/art10.1.png';
 import art10_2 from '../../assets/images/art10.2.png'; 
 import art10_3 from '../../assets/images/art10.3.jpg'; 
 import art18 from '../../assets/images/art18.png';
-import art1 from '../../assets/images/art1.png'; // ตัวอย่างเพิ่มเติม
+
 
 // กำหนดข้อมูล Commission Types
 const commissionTypes = [
     {
-        // 🚨 แก้ไข: รายการแรกเป็น Full Color Bust
-        id: 'full-color-bust',
-        title: '[ Full Color ] PFP/Avatar/Fanart/Illustration/OC', // 🚨 แก้ไข Title
-        // 🚨 แก้ไข: เปลี่ยน Description
+        // 🚨 แก้ไข: รายการแรกเป็น Full Color
+        id: 'full-color',
+        title: '[ Full Color ] PFP/OC/Fanart/Illustration', // 🚨 แก้ไข Title
         description: 'ขอบคุณที่ให้ความสนใจในงานคอมมิชชั่นของเรานะคะ! กรุณาส่งคำขอเฉพาะเมื่อคุณยอมรับรายละเอียดบริการและข้อตกลงการให้บริการของเราแล้วเท่านั้นนะคะ ขอบคุณค่ะ 💕',
-        price: 20, // 🚨 สมมติ 650+ บาท = $20+ USD
-        priceBaht: '650+', // 🚨 เพิ่ม Baht Price เพื่อแสดงใน UI
+        price: 25, // 🚨 สมมติ 800+ บาท = $25+ USD
+        priceBaht: '800+', // 🚨 แก้ไข Baht Price
         buttonColor: 'purple',
-        // 🚨 ใช้ Array of Images ที่คุณต้องการสำหรับ Full Color Bust (ใช้รูปจากรายการเก่า)
+        // ใช้ Array of Images ที่คุณต้องการสำหรับ Full Color
         images: [
             art2,
             art7,
@@ -46,15 +46,14 @@ const commissionTypes = [
         ],
     },
     {
-        // 🚨 เพิ่ม: รายการที่สองเป็น Rough Color
+        // 🚨 รายการที่สองเป็น Rough Color
         id: 'rough-color',
-        title: '[ Rough Color ] PFP/OC/Fanart/Illustration', // 🚨 แก้ไข Title
-        // 🚨 แก้ไข: เปลี่ยน Description
+        title: '[ Rough Color ] PFP/OC/Fanart/Illustration', 
         description: 'ขอบคุณที่ให้ความสนใจในงานคอมมิชชั่นของเรานะคะ! กรุณาส่งคำขอเฉพาะเมื่อคุณยอมรับรายละเอียดบริการและข้อตกลงการให้บริการของเราแล้วเท่านั้นนะคะ ขอบคุณค่ะ 💕',
-        price: 14, // 🚨 สมมติ 450+ บาท = $14+ USD
-        priceBaht: '450+', // 🚨 เพิ่ม Baht Price
+        price: 17, // 🚨 สมมติ 550+ บาท = $17+ USD
+        priceBaht: '550+', // 🚨 แก้ไข Baht Price
         buttonColor: 'blue',
-        // 🚨 ใช้ Array of Images ที่คุณต้องการสำหรับ Rough Color
+        // ใช้ Array of Images ที่คุณต้องการสำหรับ Rough Color (คงเดิม)
         images: [
             art1_1,
             art3,
@@ -62,6 +61,25 @@ const commissionTypes = [
             art11,
             art13,
             art17,
+        ],
+    },
+    {
+        // 🚨 เพิ่ม: รายการที่สามเป็น Full Color Bust Up
+        id: 'full-color-bust-up',
+        title: '[ Full Color Bust Up ] PhotoID/OC/Cannon', // 🚨 เพิ่ม Title
+        description: 'ขอบคุณที่ให้ความสนใจในงานคอมมิชชั่นของเรานะคะ! กรุณาส่งคำขอเฉพาะเมื่อคุณยอมรับรายละเอียดบริการและข้อตกลงการให้บริการของเราแล้วเท่านั้นนะคะ ขอบคุณค่ะ 💕',
+        price: 14, // 🚨 สมมติ 450+ บาท = $14+ USD
+        priceBaht: '450+', // 🚨 เพิ่ม Baht Price
+        buttonColor: 'purple',
+        // 🚨 ใช้ Array of Images ที่คุณต้องการสำหรับ Full Color Bust Up
+        images: [
+            art6_1,
+            art7_2,
+            art12,
+            art14,
+            art15,
+            art16_1,
+            art16,
         ],
     },
 ];
@@ -217,7 +235,8 @@ function RequestModal({ commission, onClose, onSubmit, requesterUsername }) {
                         </div>
                         
                         <h3 className="text-xl font-semibold text-gray-800 mb-2 border-t pt-4">Terms of Service</h3>
-                        <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 max-h-40 overflow-y-auto custom-scroll mb-4">
+                        {/* 🚨 แก้ไข: เพิ่ม max-h-80 */}
+                        <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 max-h-80 overflow-y-auto custom-scroll mb-4">
                             {TERMS_OF_SERVICE.split('\n').filter(line => line.trim() !== '').map((line, index) => (
                                 <p key={index} className="mb-1">{line}</p>
                             ))}
@@ -282,14 +301,18 @@ function CommissionPage() {
     return (
         <div className="p-6 bg-white rounded-xl shadow-lg">
             <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Commission Information</h2>
-            <p className="text-gray-600 mb-6">Here you can define your commission scales, show examples, and outline terms for your clients.</p>
+            
+            {/* 🚨 แก้ไข: เปลี่ยนข้อความแนะนำ */}
+            <p className="text-gray-600 mb-6">
+                ตรงนี้ลูกค้าสามารถดูเรทราคาคอมมิชชั่นของทางร้านได้เลยนะคะ 💕 มีตัวอย่างผลงานให้ชมด้วยค่ะ และด้านล่างจะมีเงื่อนไขการสั่งงานหรือข้อตกลงต่าง ๆ ไว้ให้อ่านก่อนสั่งนะคะ 💌✨
+            </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {commissionTypes.map((commission) => (
                     <div 
                         key={commission.id}
                         // ใช้ Tailwind CSS classes แบบไม่ Dynamic เพื่อป้องกันการ Purge
-                        className={`bg-${commission.buttonColor}-50 p-6 rounded-xl shadow-md border ${commission.buttonColor === 'blue' ? 'border-blue-200' : 'border-purple-200'} flex flex-col`}
+                        className={`bg-${commission.buttonColor === 'blue' ? 'blue' : 'purple'}-50 p-6 rounded-xl shadow-md border ${commission.buttonColor === 'blue' ? 'border-blue-200' : 'border-purple-200'} flex flex-col`}
                     >
                         <h3 className={`font-bold ${commission.buttonColor === 'blue' ? 'text-blue-800' : 'text-purple-800'} text-xl mb-2`}>{commission.title}</h3>
                         <p className={`${commission.buttonColor === 'blue' ? 'text-blue-700' : 'text-purple-700'} text-sm mb-4 flex-grow`}>{commission.description}</p>
