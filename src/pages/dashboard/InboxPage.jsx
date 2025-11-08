@@ -47,7 +47,7 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
                     const isSystem = msg.sender === 'System';
                     
                     if (isSystem) {
-                         // 🚨 แก้ไข: เปลี่ยน max-w-lg เป็น max-w-xs และจัดกึ่งกลาง
+                         // 🚨 โค้ดที่แก้ไข: จัดกึ่งกลางและมีขอบเขตที่ชัดเจน
                          return (
                             <div key={msg.id} className="flex justify-center w-full"> 
                                 <div className="text-center text-xs text-gray-400 italic max-w-xs p-2 rounded-lg bg-gray-50 border border-gray-200">
@@ -184,6 +184,9 @@ function InboxPage() {
                                     request.messages && request.messages.length > 0
                                         ? request.messages[request.messages.length - 1] 
                                         : null;
+                                
+                                // 🚨 หาข้อความ System Message 
+                                const systemMessage = request.messages && request.messages.find(msg => msg.sender === 'System');
 
                                 return (
                                     <div 
@@ -194,14 +197,24 @@ function InboxPage() {
                                             isSelected ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-500' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                         } flex items-center justify-between`}
                                     >
-                                        <div className="flex-1 mr-4 break-words">
+                                        {/* 🚨 แก้ไข: เพิ่ม overflow-hidden ตรงนี้ด้วย */}
+                                        <div className="flex-1 mr-4 overflow-hidden">
                                             <p className="font-semibold text-gray-800 text-lg">
                                                 <span className="text-blue-600">{request.requesterUsername}</span> requested <span className="text-purple-600">{request.commissionType}</span>
                                             </p>
                                             <p className="text-gray-600 text-sm">
                                                 Price: <span className="font-medium">${request.price}</span> | Status: <span className="font-medium text-green-700">{request.status}</span>
                                             </p>
-                                            {lastMessage && (
+                                            
+                                            {/* 🚨 แสดง System Message และใช้ truncate */}
+                                            {systemMessage && (
+                                                <p className="text-gray-500 text-xs mt-1 truncate">
+                                                    <span className="font-medium">System:</span> {systemMessage.text}
+                                                </p>
+                                            )}
+                                            
+                                            {/* 🚨 ซ่อน lastMessage ถ้ามันคือ System Message เพื่อไม่ให้ซ้ำ */}
+                                            {lastMessage && lastMessage.sender !== 'System' && (
                                                 <p className="text-gray-500 text-xs mt-1 truncate">
                                                     <span className="font-medium">{lastMessage.sender === user.username ? 'You' : lastMessage.sender}:</span> {lastMessage.text}
                                                 </p>
