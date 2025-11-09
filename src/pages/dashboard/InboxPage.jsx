@@ -5,7 +5,8 @@ import { FaTrash, FaPaperPlane, FaUserCircle } from 'react-icons/fa';
 
 // Component ย่อยสำหรับหน้าต่างแชท (Admin Side)
 function CommissionChat({ request, currentUser, addMessage, deleteMessage }) { 
-    // ... (โค้ดเหมือนเดิม)
+    // 🚨🚨 FIX: ประกาศ useState สำหรับ messageInput ที่นี่ 🚨🚨
+    const [messageInput, setMessageInput] = useState(''); 
     const chatEndRef = useRef(null);
 
     // Scroll ไปด้านล่างเมื่อข้อความมีการเปลี่ยนแปลง
@@ -149,14 +150,7 @@ function InboxPage() {
             const lastMessage = selectedRequest.messages[selectedRequest.messages.length - 1];
             // เคลียร์เฉพาะเมื่อข้อความล่าสุดมาจาก Client
             if (lastMessage.sender !== 'fezeaix' && lastMessage.sender !== 'System') {
-                // 🚨 ใช้ setClientMessagesViewed แต่ส่งเป็น user.username (fezeaix)
-                // เพื่ออัปเดต lastViewedByClient.fezeaix ใน Firestore
-                // Note: ฟังก์ชัน setClientMessagesViewed ใน AuthContext มีเงื่อนไข if (!user || user.role === 'admin') return; 
-                // ซึ่งเราต้อง bypass มัน (แต่มันปลอดภัยแล้วเพราะ Admin มี Logic เคลียร์ใน Layout/Dropdown) 
-                // **ดังนั้นสำหรับ Admin เราจะเคลียร์ผ่าน Local Storage/Layout Component แทน**
                 
-                // 🚨 NOTE: เพื่อให้ง่ายต่อการใช้งานและซิงค์กับ Layout Component
-                // เราจะทำการอัปเดต Local Storage ที่ใช้ใน Layout Component ตรงๆ
                 const storedViewedMessages = JSON.parse(localStorage.getItem('adminLastViewedMessages') || '{}');
                 const now = new Date().toISOString();
                 
@@ -167,10 +161,6 @@ function InboxPage() {
                         [selectedRequest.id]: now
                     };
                     localStorage.setItem('adminLastViewedMessages', JSON.stringify(newViewedMessages));
-                    // 🚨 Trigger force update (อาจจะต้องใช้ State ใน Layout แต่เราจะพึ่งพา onSnapshot ของ commission requests)
-                    // เนื่องจากเราไม่สามารถอัปเดต State ภายนอกได้โดยตรงจากตรงนี้ 
-                    // การอัปเดต Local Storage แล้วรอ onSnapshot มาช่วยอัปเดต Layout เป็นวิธีที่ง่ายที่สุด
-                    // แต่ในกรณีนี้เราต้องรอให้ Layout อัปเดต State adminLastViewedMessages จาก Local Storage ในรอบถัดไป
                 }
             }
         }
