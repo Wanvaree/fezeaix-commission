@@ -84,7 +84,7 @@ function GalleryPage() {
             <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">My Art Gallery</h2>
             {/* 🚨 FIX: อัปเดตข้อความ */}
             <p className="text-gray-600 mb-6">
-                This is where all your amazing artworks will be displayed! รวมตัวอย่างCommission จะมีการอัพเดทอยู่เรื่อยๆค่ะ💕
+                รวมตัวอย่างCommission จะมีการอัพเดทอยู่เรื่อยๆค่ะ💕
             </p>
 
             {/* 🚨 แก้ไข: ใช้ Responsive Grid และ Hover Effect */}
