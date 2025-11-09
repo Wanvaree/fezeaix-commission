@@ -134,7 +134,6 @@ function Layout() {
         const isFromClient = lastMessage.sender !== 'fezeaix' && lastMessage.sender !== 'System';
         if (!isFromClient) return false;
         
-        // ตรวจสอบว่าข้อความล่าสุดใหม่กว่าเวลาที่ Admin เปิด Inbox ล่าสุด (ใช้ Local Storage)
         const lastViewedTimestamp = adminLastViewedMessages[req.id] || new Date(0).toISOString();
         
         return new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime();
@@ -181,7 +180,6 @@ function Layout() {
         if (isAdmin) {
             setIsDropdownOpen(prev => !prev);
         } else {
-             // 🚨 Client: คลิก Bell นำไปหน้า Messages ทันที
              navigate('/dashboard/messages');
         }
     };
@@ -199,7 +197,6 @@ function Layout() {
             const now = new Date().toISOString();
             const newViewedMessages = { ...adminLastViewedMessages };
             
-            // อัปเดตเฉพาะ Request ที่มี Message Alert และ New Request ที่ยังไม่ได้ถูกมาร์คว่า viewed
             const alertsToClear = [...newRequestAlerts.map(r => r.id), ...newMessageAlerts.map(r => r.id)];
 
             alertsToClear.forEach(id => {
@@ -210,7 +207,6 @@ function Layout() {
             setViewedRequests(prevViewed => [...new Set([...prevViewed, ...newRequestAlerts.map(r => r.id)])]);
 
             
-            // ตรวจสอบว่ามีการเปลี่ยนแปลงหรือไม่ก่อนอัปเดต (เพื่อลดการรีเรนเดอร์)
             const didMessageAlertsChange = newMessageAlerts.length > 0; 
             const didRequestAlertsChange = newRequestAlerts.length > 0;
             
