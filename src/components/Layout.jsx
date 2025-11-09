@@ -1,195 +1,381 @@
 // src/components/Layout.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { FaPaperPlane, FaPaintBrush, FaTrashAlt } from 'react-icons/fa'; 
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp, FaTrashAlt } from 'react-icons/fa'; 
+import { useAuth } from '../context/AuthContext'; // 🚨🚨 FIX: ตรวจสอบให้แน่ใจว่าเป็น '../context/AuthContext'
 
-// Component ย่อยสำหรับหน้าต่างแชท (Client Side)
-function ClientCommissionChat({ request, currentUser, addMessage }) {
-    // ... (ClientCommissionChat Code)
-    const [messageInput, setMessageInput] = useState('');
-    const chatEndRef = useRef(null);
-
-    // Scroll ไปด้านล่างเมื่อข้อความมีการเปลี่ยนแปลง
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [request.messages]);
-
-    const handleSend = async (e) => {
-        e.preventDefault();
-        if (messageInput.trim()) {
-            await addMessage(request.id, currentUser.username, messageInput.trim());
-            setMessageInput('');
-        }
-    };
+// 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Admin/Client Dropdown)
+function NotificationDropdown({ alerts, isClient, handleClose, handleClearAll }) { 
     
-    // ... (Return Chat UI)
+    // เรียงตามเวลาใหม่สุด
+    const sortedAlerts = alerts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); 
     
     return (
-        <div className="flex flex-col h-full bg-white border border-gray-200 rounded-xl shadow-md">
-            {/* ... (Chat Content) */}
+        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in z-50 border border-gray-200">
+            <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-800">{isClient ? 'New Message/Status Alerts' : 'All Notifications'}</h3> 
+                <button 
+                    onClick={handleClearAll} // 🚨 ปุ่ม Clear All
+                    className="flex items-center text-red-500 hover:text-red-700 text-xs font-semibold p-1 rounded transition-colors"
+                >
+                    <FaTrashAlt className="mr-1" size={12} /> Clear All
+                </button>
+            </div>
+            
+            {sortedAlerts.length === 0 ? ( 
+                <div className="p-4 text-center text-gray-500 text-sm">
+                    No new notifications.
+                </div>
+            ) : (
+                <div className="max-h-80 overflow-y-auto">
+                    {sortedAlerts.map((alert) => ( 
+                        <Link
+                            key={alert.id + alert.type} 
+                            to={isClient ? "/dashboard/messages" : "/dashboard/inbox"} // Client ไปหน้า Messages, Admin ไปหน้า Inbox
+                            onClick={handleClose}
+                            className="flex flex-col p-3 hover:bg-gray-50 border-b border-gray-100 transition-colors"
+                        >
+                            <p className="text-sm font-semibold text-gray-800 truncate">
+                                <span className={`mr-2 font-bold ${alert.type === 'REQUEST' ? 'text-red-600' : alert.type === 'STATUS' ? 'text-green-600' : 'text-orange-600'}`}>
+                                    {alert.type === 'REQUEST' ? '🚨 REQUEST:' : alert.type === 'STATUS' ? '✅ STATUS:' : '💬 MESSAGE:'}
+                                </span>
+                                {alert.title}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1 truncate">{alert.subtitle}</p>
+                            <span className="text-xs text-gray-400 mt-1 self-end">
+                                {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span >
+                        </Link>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
 
-function MessagesPage() {
-    // 🚨 เพิ่ม clearClientNotifications
-    const { commissionRequests, user, addMessageToCommissionRequest, setClientMessagesViewed, clearClientNotifications } = useAuth();
-    // กรองเฉพาะ Commission Request ของผู้ใช้งานปัจจุบัน
-    const userRequests = commissionRequests.filter(req => req.requesterUsername === user?.username);
-    const [selectedRequest, setSelectedRequest] = useState(userRequests.length > 0 ? userRequests[0] : null);
-
-    // อัพเดท selectedRequest เมื่อ commissionRequests ถูกอัพเดท
-    useEffect(() => {
-        const sortedUserRequests = commissionRequests
-            .filter(req => req.requesterUsername === user?.username)
-            .slice()
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
-        if (selectedRequest) {
-            const updatedRequest = commissionRequests.find(req => req.id === selectedRequest.id);
-            setSelectedRequest(updatedRequest || null);
-        } else if (sortedUserRequests.length > 0) {
-            setSelectedRequest(sortedUserRequests[0]);
-        }
-    }, [commissionRequests, user?.username, selectedRequest]); 
+function Layout() {
+    const { user, logout, commissionRequests, isAdmin, clearClientNotifications } = useAuth(); 
+    const navigate = useNavigate();
+    const location = useLocation(); 
     
-    // 🚨🚨 FIX: Logic การเคลียร์แจ้งเตือนของ Client เมื่อเลือก Request (Fix 1: Stop Pulse)
-    // *** นี่คือส่วนที่ทำให้จุดแดงหายไปเมื่อคุณคลิกเลือก Request ***
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null); 
+    
+    // Admin Notification States
+    const [viewedRequests, setViewedRequests] = useState(() => {
+        const stored = localStorage.getItem('viewedRequests');
+        return stored ? JSON.parse(stored) : [];
+    });
+    const [adminLastViewedMessages, setAdminLastViewedMessages] = useState(() => {
+        const stored = localStorage.getItem('adminLastViewedMessages');
+        return stored ? JSON.parse(stored) : {}; 
+    });
+    
+    // Note: ลบ State notificationStatus และ handleEnableNotifications ออก (ไม่ใช้ Web Noti แล้ว)
+
+    // useEffects for Local Storage Sync
     useEffect(() => {
-        if (selectedRequest && selectedRequest.messages && selectedRequest.messages.length > 0) {
-            const lastActivityTimestamp = selectedRequest.timestamp; 
-            const lastViewedTimestamp = selectedRequest.lastViewedByClient?.[user.username] || new Date(0).toISOString();
+        localStorage.setItem('viewedRequests', JSON.stringify(viewedRequests));
+    }, [viewedRequests]);
+    
+    useEffect(() => {
+        localStorage.setItem('adminLastViewedMessages', JSON.stringify(adminLastViewedMessages));
+    }, [adminLastViewedMessages]);
+    
+    
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
+    
+    // -----------------------------------------------------------
+    // 🚨 Client Notification Logic (สำคัญสำหรับการแสดงผลจุดแดง)
+    // -----------------------------------------------------------
+    const clientMessageAlerts = commissionRequests.filter(req => {
+        if (req.requesterUsername !== user?.username) return false; 
+        
+        const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
+        
+        const lastViewedTimestamp = req.lastViewedByClient?.[user.username] || new Date(0).toISOString();
+        // ตรวจสอบจาก req.timestamp (ซึ่งจะเปลี่ยนเมื่อมีข้อความใหม่หรือสถานะเปลี่ยน)
+        // *** ถ้า lastViewedByClient ถูกอัปเดตใน MessagesPage.jsx ตัวเลขนี้จะลดลง ***
+        const isUnread = new Date(req.timestamp).getTime() > new Date(lastViewedTimestamp).getTime(); 
+        
+        if (isUnread) {
+            return true;
+        }
+        
+        return false;
+    }).map(req => {
+        const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
+        const isNewMessage = lastMessage?.sender === 'fezeaix';
+        
+        return ({
+            id: req.id,
+            type: isNewMessage ? 'MESSAGE' : 'STATUS', 
+            title: req.commissionType,
+            subtitle: isNewMessage ? lastMessage.text : `Status updated to: ${req.status}`,
+            timestamp: req.timestamp
+        });
+    });
+    
+    const clientNewMessagesCount = clientMessageAlerts.length;
+
+
+    // -----------------------------------------------------------
+    // 🚨 Admin Notification Logic (New/Fixed)
+    // -----------------------------------------------------------
+    
+    // 1. New Request List (สำหรับ Dropdown และ Count)
+    const newRequestAlerts = commissionRequests.filter(
+        req => req.status === 'New Request' && !viewedRequests.includes(req.id)
+    );
+    const adminNewRequestsCount = newRequestAlerts.length;
+
+    // 2. New Message Alert List (จาก Client)
+    const newMessageAlerts = commissionRequests.filter(req => {
+        const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
+        if (!lastMessage) return false;
+        
+        if (req.status === 'New Request' && newRequestAlerts.some(r => r.id === req.id)) return false; 
+
+        const isFromClient = lastMessage.sender !== 'fezeaix' && lastMessage.sender !== 'System';
+        if (!isFromClient) return false;
+        
+        const lastViewedTimestamp = adminLastViewedMessages[req.id] || new Date(0).toISOString();
+        
+        return new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime();
+    }).map(req => ({
+        id: req.id,
+        type: 'MESSAGE',
+        title: req.requesterUsername,
+        subtitle: req.messages[req.messages.length - 1].text,
+        timestamp: req.messages[req.messages.length - 1].timestamp
+    }));
+    const adminNewMessageAlertCount = newMessageAlerts.length;
+
+
+    // 🚨 รวมตัวนับทั้งหมดสำหรับ Header Bell และ Sidebar Link
+    const totalAdminNotificationCount = adminNewRequestsCount + adminNewMessageAlertCount;
+    
+    // เลือกตัวนับที่เหมาะสมสำหรับ Header Bell
+    const notificationCount = isAdmin ? totalAdminNotificationCount : clientNewMessagesCount;
+
+    
+    // 🚨 ฟังก์ชัน: เคลียร์แจ้งเตือนทั้งหมด (เรียกจากปุ่มใน Dropdown)
+    const handleClearAllAdminNotifications = () => {
+        if (window.confirm("Are you sure you want to clear all unread notifications?")) {
+            localStorage.removeItem('viewedRequests');
+            setViewedRequests([]);
+
+            const now = new Date().toISOString();
+            const updatedViewedMessages = {}; 
             
-            // ถ้ามีการอัปเดต (ข้อความ Admin หรือ สถานะเปลี่ยน) และ Client ยังไม่ได้อ่าน
-            if (new Date(lastActivityTimestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
-                // 🚨 เรียก function เคลียร์ใน AuthContext เพื่ออัปเดต Firestore
-                setClientMessagesViewed(selectedRequest.id, lastActivityTimestamp); // ใช้ lastActivityTimestamp เพื่อมาร์คว่าอ่านถึงสถานะล่าสุด
-                
-                // 🚨🚨 FIX: อัปเดต selectedRequest ทันที (Optimistic Update)
-                setSelectedRequest(prev => {
-                    if (!prev) return prev;
-                    return ({
-                        ...prev,
-                        lastViewedByClient: {
-                            ...(prev.lastViewedByClient || {}),
-                            [user.username]: lastActivityTimestamp
-                        }
-                    });
-                });
+            commissionRequests.forEach(req => {
+                 updatedViewedMessages[req.id] = now;
+            });
+            setAdminLastViewedMessages(updatedViewedMessages);
+            localStorage.setItem('adminLastViewedMessages', JSON.stringify(updatedViewedMessages));
+            
+            setIsDropdownOpen(false); // ปิด Dropdown
+        }
+    };
+    
+    // 🚨 ฟังก์ชัน: เคลียร์แจ้งเตือนทั้งหมดของ Client
+    const handleClearAllClientNotifications = () => {
+         if (window.confirm("Are you sure you want to clear all message alerts?")) {
+             clearClientNotifications(); // เรียกใช้ AuthContext Function
+             setIsDropdownOpen(false);
+         }
+    };
+    
+    // 🚨 ฟังก์ชัน: สลับสถานะ Dropdown (Admin/Client)
+    const handleNotificationClick = () => {
+        setIsDropdownOpen(prev => !prev);
+    };
+    
+    // 🚨 ฟังก์ชัน: ปิด Dropdown (ใช้เมื่อคลิกนอก Dropdown - ไม่เคลียร์ทั้งหมด)
+    const closeDropdown = () => {
+        setIsDropdownOpen(false);
+    };
+
+
+    // 🚨 useEffect: Trigger Admin Message Alert Clear เมื่อเข้าหน้า Inbox
+    useEffect(() => {
+        if (isAdmin && location.pathname.startsWith('/dashboard/inbox')) {
+            const now = new Date().toISOString();
+            const newViewedMessages = { ...adminLastViewedMessages };
+            
+            const alertsToClear = [...newRequestAlerts.map(r => r.id), ...newMessageAlerts.map(r => r.id)];
+
+            alertsToClear.forEach(id => {
+                newViewedMessages[id] = now;
+            });
+
+            setViewedRequests(prevViewed => [...new Set([...prevViewed, ...newRequestAlerts.map(r => r.id)])]);
+
+            const didMessageAlertsChange = newMessageAlerts.length > 0; 
+            const didRequestAlertsChange = newRequestAlerts.length > 0;
+            
+            if (didMessageAlertsChange || didRequestAlertsChange) {
+                 setAdminLastViewedMessages(newViewedMessages);
+                 localStorage.setItem('adminLastViewedMessages', JSON.stringify(newViewedMessages));
             }
         }
-    }, [selectedRequest, setClientMessagesViewed, user.username]);
-
-
-    const handleAddMessage = async (requestId, senderUsername, messageText) => {
-        await addMessageToCommissionRequest(requestId, senderUsername, messageText);
-    };
-
-    // 🚨 ฟังก์ชันสำหรับ Clear All Client Notifications
-    const handleClearAll = () => {
-        if (window.confirm("Are you sure you want to clear all commission message notifications?")) {
-            clearClientNotifications(); // เรียกใช้จาก AuthContext
+        
+        // useEffect เดิมสำหรับปิด Dropdown
+        function handleClickOutside(event) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                closeDropdown();
+            }
         }
-    };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [dropdownRef, isAdmin, location.pathname, commissionRequests]); 
 
-    // 🚨 Logic สำหรับแสดงวงกลมแดงในรายการ Request Panel
-    const hasUnreadMessage = (request) => {
-        if (!request.messages || request.messages.length === 0) return false;
+    const getLinkClasses = (path) => {
+        const isActive = location.pathname.startsWith(`/dashboard/${path}`);
         
-        const lastActivityTimestamp = request.timestamp; 
-        const lastViewedTimestamp = request.lastViewedByClient?.[user.username] || new Date(0).toISOString();
-        
-        // แจ้งเตือนเมื่อมีการอัปเดตใดๆ (ข้อความ/สถานะ) ที่ใหม่กว่าที่เคยดู
-        return new Date(lastActivityTimestamp).getTime() > new Date(lastViewedTimestamp).getTime();
+        return `flex items-center p-3 rounded-lg transition-colors duration-200 ${
+            isActive 
+                ? 'bg-blue-700 text-white font-bold shadow-md' 
+                : 'text-blue-200 hover:bg-blue-700 hover:text-white' 
+        }`;
     };
-
-
-    const sortedUserRequests = userRequests.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const totalUnreadCount = sortedUserRequests.filter(hasUnreadMessage).length; // ใช้สำหรับแสดงผล
-
-    if (userRequests.length === 0) {
-        return (
-            <div className="p-6 bg-white rounded-xl shadow-lg">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">My Commission Messages</h2>
-                <p className="text-gray-500 text-center py-8">You have no active commission requests yet. Please visit the Commission page to start one.</p>
-            </div>
-        );
-    }
 
     return (
-        <div className="p-6 h-full bg-white rounded-xl shadow-lg flex flex-col">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex justify-between items-center">
-                My Commission Messages
-                {totalUnreadCount > 0 && (
-                    <button 
-                        onClick={handleClearAll} 
-                        className="flex items-center text-red-500 hover:text-red-700 text-sm font-semibold p-2 rounded transition-colors"
-                    >
-                        <FaTrashAlt className="mr-1" size={14} /> Clear All {totalUnreadCount} Alerts
-                    </button>
-                )}
-            </h2>
+        <div className="flex h-screen bg-gray-100">
+            {/* Sidebar เดิม */}
+            <aside className="w-72 bg-blue-900 text-blue-100 flex flex-col shadow-lg">
+                <div className="p-5 text-2xl font-bold border-b border-blue-800 flex items-center">
+                    <FaPaintBrush className="mr-3 text-blue-300" />
+                    Fezeaix Commission
+                </div>
+                {/* 🚨 เพิ่ม overflow-y-auto */}
+                <nav className="flex-1 p-5 overflow-y-auto"> 
+                    <ul>
+                        <li className="mb-2">
+                            <Link to="/dashboard/gallery" className={getLinkClasses('gallery')}>
+                                <FaImage className="mr-3 text-blue-300" /> Gallery
+                            </Link>
+                        </li>
+                        <li className="mb-2">
+                            <Link to="/dashboard/commission" className={getLinkClasses('commission')}>
+                                <FaPaintBrush className="mr-3 text-blue-300" /> Commission
+                            </Link>
+                        </li>
 
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
-                {/* Panel ซ้าย: รายการ Commission Request */}
-                <div className="overflow-y-auto custom-scroll md:col-span-1">
-                    <div className="space-y-3">
-                        {sortedUserRequests.map((request) => {
-                            const isSelected = selectedRequest && selectedRequest.id === request.id;
-                            const unread = hasUnreadMessage(request); 
-                            const lastMessage = 
-                                request.messages && request.messages.length > 0
-                                    ? request.messages[request.messages.length - 1] 
-                                    : null;
-
-                            return (
-                                <div 
-                                    key={request.id} 
-                                    onClick={() => setSelectedRequest(request)}
-                                    className={`p-4 rounded-lg shadow-sm border transition-all duration-200 cursor-pointer ${
-                                        isSelected ? 'bg-purple-100 border-purple-400 ring-2 ring-purple-500' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                                    } flex flex-col relative`} 
+                        {/* Messages Link สำหรับ Client ทุกคน (User ทั่วไป) */}
+                        {!isAdmin && ( 
+                            <li className="mb-2">
+                                {/* 🚨🚨 FIX: แสดง Client Message Count ใน Sidebar ด้วย Pulse Dot 🚨🚨 */}
+                                <Link 
+                                    to="/dashboard/messages" 
+                                    className={getLinkClasses('messages')}
                                 >
-                                    <p className="font-semibold text-gray-800 text-lg">
-                                        Request: <span className="text-purple-600">{request.commissionType}</span>
-                                    </p>
-                                    <p className="text-gray-600 text-sm">
-                                        Status: <span className="font-medium text-green-700">{request.status}</span>
-                                    </p>
-                                    {lastMessage && (
-                                        <p className="text-gray-500 text-xs mt-1 truncate">
-                                            <span className="font-medium">{lastMessage.sender === user.username ? 'You' : lastMessage.sender}:</span> {lastMessage.text}
-                                        </p>
-                                    )}
-                                    {/* 🚨 วงกลมแดง Pulse Dot สำหรับ Unread Message ในรายการ */}
-                                    {unread && (
-                                        <span className="absolute top-2 right-2 relative flex h-3 w-3" title="New Message/Status Update">
+                                    <FaComments className={`mr-3 ${clientNewMessagesCount > 0 ? 'text-yellow-400' : 'text-blue-300'}`} />
+                                    Messages
+                                    {clientNewMessagesCount > 0 && ( 
+                                        <span className="ml-auto relative flex h-3 w-3">
+                                            {/* Pulse Ring */}
                                             <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                            {/* Solid Dot */}
                                             <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                                         </span>
                                     )}
-                                </div>
-                            );
-                        })}
-                    </div>
+                                </Link>
+                            </li>
+                        )}
+                        
+                        {/* History Link สำหรับ Client ทุกคน (User ทั่วไป) */}
+                        {!isAdmin && ( 
+                            <li className="mb-2">
+                                <Link to="/dashboard/history" className={getLinkClasses('history')}>
+                                    <FaHistory className="mr-3 text-blue-300" /> History
+                                </Link>
+                            </li>
+                        )}
+                        
+                        {/* แสดง Inbox Link เฉพาะถ้าเป็น Admin */}
+                        {isAdmin && (
+                            <li className="mb-2">
+                                <Link to="/dashboard/inbox" className={getLinkClasses('inbox')}>
+                                    <FaInbox className={`mr-3 ${totalAdminNotificationCount > 0 ? 'text-yellow-400' : 'text-blue-300'}`} /> 
+                                    Inbox
+                                    {totalAdminNotificationCount > 0 && (
+                                        <span className="ml-auto relative flex h-3 w-3">
+                                            {/* Pulse Ring */}
+                                            <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                            {/* Solid Dot */}
+                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                        </span>
+                                    )}
+                                </Link>
+                            </li>
+                        )}
+                        <li className="mb-2">
+                            <Link to="/dashboard/queue" className={getLinkClasses('queue')}>
+                                <FaListAlt className="mr-3 text-blue-300" /> Queue
+                            </Link>
+                        </li>
+                        <li className="mb-2">
+                            <Link to="/dashboard/settings" className={getLinkClasses('settings')}>
+                                <FaCog className="mr-3 text-blue-300" /> Settings
+                            </Link>
+                        </li>
+                    </ul>
+                </nav>
+                <div className="p-5 border-t border-blue-800">
+                    
+                    <button onClick={handleLogout} className="flex items-center p-3 text-blue-200 hover:bg-blue-700 hover:text-white rounded-lg transition-colors duration-200 w-full">
+                        <FaSignOutAlt className="mr-3 text-blue-300" /> Logout
+                    </button>
                 </div>
+            </aside>
 
-                {/* Panel ขวา: หน้าต่างแชท */}
-                {selectedRequest ? (
-                    <div className="md:col-span-2 h-full min-h-[400px]">
-                        <ClientCommissionChat 
-                            request={selectedRequest} 
-                            currentUser={user}
-                            addMessage={handleAddMessage}
-                        />
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Header / Top Banner */}
+                <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm z-10">
+                    <h1 className="text-xl font-semibold text-gray-800">Welcome, {user ? user.username : 'Guest'}!</h1>
+                    <div className="flex items-center space-x-4">
+                        {/* 🚨 Notification Dropdown Area (Bell Icon) */}
+                        <div className="relative" ref={dropdownRef}>
+                            <button 
+                                onClick={handleNotificationClick} 
+                                // 🚨 เพิ่ม pulse animation class
+                                className={`relative p-2 rounded-full transition-colors ${notificationCount > 0 ? 'text-red-500 hover:text-red-600 bg-red-50 animate-pulse' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'}`}
+                                title={notificationCount > 0 ? `${notificationCount} New Notification(s)` : 'No new notifications'}
+                            >
+                                <FaBell className="text-xl" />
+                                {/* 🚨 ตัวเลขวงกลมแดง */}
+                                {notificationCount > 0 && ( 
+                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                                        {notificationCount}
+                                    </span>
+                                )}
+                            </button>
+                            
+                            {/* Dropdown แสดงเฉพาะ Admin/Client */}
+                            {isDropdownOpen && (
+                                <NotificationDropdown 
+                                    alerts={isAdmin ? [...newRequestAlerts, ...newMessageAlerts] : clientMessageAlerts}
+                                    isClient={!isAdmin}
+                                    handleClearAll={isAdmin ? handleClearAllAdminNotifications : handleClearAllClientNotifications} 
+                                    handleClose={closeDropdown} 
+                                />
+                            )}
+                        </div>
                     </div>
-                ) : (
-                    <div className="md:col-span-2 flex items-center justify-center text-gray-500 text-lg">
-                        Select a commission request to view the chat.
-                    </div>
-                )}
+                </header>
+
+                {/* Page Content */}
+                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+                    <Outlet />
+                </main>
             </div>
         </div>
     );
 }
-export default MessagesPage;
+
+export default Layout;
