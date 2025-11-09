@@ -1,5 +1,5 @@
 // src/components/Layout.jsx
-import React, { useState, useRef, useEffect } => 'react'; 
+import React, { useState, useRef, useEffect } from 'react'; // 🚨🚨 FIX: เปลี่ยน => 'react' เป็น from 'react'
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp, FaTrashAlt } from 'react-icons/fa'; 
 import { useAuth } from '../context/AuthContext';
@@ -89,7 +89,7 @@ function Layout() {
     };
     
     // -----------------------------------------------------------
-    // 🚨 Client Notification Logic (Fixed to include Status Change)
+    // 🚨 Client Notification Logic 
     // -----------------------------------------------------------
     const clientMessageAlerts = commissionRequests.filter(req => {
         if (req.requesterUsername !== user?.username) return false; 
@@ -101,10 +101,6 @@ function Layout() {
         const isUnread = new Date(req.timestamp).getTime() > new Date(lastViewedTimestamp).getTime(); 
         
         if (isUnread) {
-            const isNewMessage = lastMessage?.sender === 'fezeaix';
-            
-            // Note: req.status != oldStatus ถูก Trigger ใน AuthContext ด้วยการเปลี่ยน req.timestamp
-            // เราแค่ตรวจว่า req.timestamp ใหม่กว่า lastViewedTimestamp
             return true;
         }
         
