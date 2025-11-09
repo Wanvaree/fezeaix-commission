@@ -119,12 +119,14 @@ function MessagesPage() {
     useEffect(() => {
         if (selectedRequest && selectedRequest.messages && selectedRequest.messages.length > 0) {
             const lastMessage = selectedRequest.messages[selectedRequest.messages.length - 1];
+            // ใช้ selectedRequest.timestamp เพราะมันเปลี่ยนเมื่อมี status update
+            const lastActivityTimestamp = selectedRequest.timestamp; 
             const lastViewedTimestamp = selectedRequest.lastViewedByClient?.[user.username] || new Date(0).toISOString();
             
-            // ถ้าข้อความใหม่ล่าสุดมาจาก Admin และยังไม่ได้อ่าน
-            if (lastMessage.sender === 'fezeaix' && new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
+            // ถ้ามีการอัปเดต (ข้อความ Admin หรือ สถานะเปลี่ยน) และ Client ยังไม่ได้อ่าน
+            if (new Date(lastActivityTimestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
                 // 🚨 เรียก function เคลียร์ใน AuthContext
-                setClientMessagesViewed(selectedRequest.id, lastMessage.timestamp);
+                setClientMessagesViewed(selectedRequest.id, lastActivityTimestamp); // ใช้ lastActivityTimestamp เพื่อมาร์คว่าอ่านถึงสถานะล่าสุด
                 
                 // 🚨🚨 FIX: อัปเดต selectedRequest ทันที (Optimistic Update)
                 setSelectedRequest(prev => {
@@ -133,7 +135,7 @@ function MessagesPage() {
                         ...prev,
                         lastViewedByClient: {
                             ...(prev.lastViewedByClient || {}),
-                            [user.username]: lastMessage.timestamp
+                            [user.username]: lastActivityTimestamp
                         }
                     });
                 });
@@ -157,13 +159,10 @@ function MessagesPage() {
     const hasUnreadMessage = (request) => {
         if (!request.messages || request.messages.length === 0) return false;
         
-        const lastMessage = request.messages[request.messages.length - 1];
-        // ตรวจสอบจาก req.timestamp ซึ่งจะเปลี่ยนเมื่อมีข้อความใหม่หรือสถานะเปลี่ยน
         const lastActivityTimestamp = request.timestamp; 
-        
         const lastViewedTimestamp = request.lastViewedByClient?.[user.username] || new Date(0).toISOString();
         
-        // แจ้งเตือนเมื่อมีการอัปเดตใดๆ (ข้อความ/สถานะ) ที่ใหม่กว่าเวลาที่เคยดู
+        // แจ้งเตือนเมื่อมีการอัปเดตใดๆ (ข้อความ/สถานะ) ที่ใหม่กว่าที่เคยดู
         return new Date(lastActivityTimestamp).getTime() > new Date(lastViewedTimestamp).getTime();
     };
 

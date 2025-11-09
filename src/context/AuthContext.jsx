@@ -402,7 +402,8 @@ export const AuthProvider = ({ children }) => {
             const requestDocRef = doc(db, "commissions", requestId);
             const currentRequest = commissionRequests.find(req => req.id === requestId);
 
-            if (!currentRequest) return { success: false, message: "Request not found." }; // 🚨 FIX: ลบอักขระพิเศษ
+            // 🚨🚨 FIX: ลบอักขระพิเศษ
+            if (!currentRequest) return { success: false, message: "Request not found." }; 
 
             const updatedMessages = currentRequest.messages.filter(msg => msg.id !== messageId);
 

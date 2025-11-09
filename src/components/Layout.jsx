@@ -71,7 +71,7 @@ function Layout() {
         return stored ? JSON.parse(stored) : {}; 
     });
     
-    const [notificationStatus, setNotificationStatus] = useState(Notification.permission);
+    // Note: ลบ State notificationStatus และ handleEnableNotifications ออก (ไม่ใช้ Web Noti แล้ว)
 
     // useEffects for Local Storage Sync
     useEffect(() => {
@@ -82,11 +82,12 @@ function Layout() {
         localStorage.setItem('adminLastViewedMessages', JSON.stringify(adminLastViewedMessages));
     }, [adminLastViewedMessages]);
     
-    const handleEnableNotifications = () => {
-        requestNotificationPermission();
-        setNotificationStatus(Notification.permission); 
+    
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
     };
-
+    
     // -----------------------------------------------------------
     // 🚨 Client Notification Logic (Fixed to include Status Change)
     // -----------------------------------------------------------
@@ -96,22 +97,21 @@ function Layout() {
         const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
         
         const lastViewedTimestamp = req.lastViewedByClient?.[user.username] || new Date(0).toISOString();
+        // ตรวจสอบจาก req.timestamp (ซึ่งจะเปลี่ยนเมื่อมีข้อความใหม่หรือสถานะเปลี่ยน)
         const isUnread = new Date(req.timestamp).getTime() > new Date(lastViewedTimestamp).getTime(); 
         
         if (isUnread) {
             const isNewMessage = lastMessage?.sender === 'fezeaix';
             
-            // ตรวจสอบว่าเป็นแจ้งเตือนที่ควรแสดงหรือไม่ (ถ้า timestamp เปลี่ยนและยังไม่ได้ดู)
-            if (isNewMessage || req.status !== commissionRequests.find(r => r.id === req.id)?.status) { 
-                 return true;
-            }
+            // Note: req.status != oldStatus ถูก Trigger ใน AuthContext ด้วยการเปลี่ยน req.timestamp
+            // เราแค่ตรวจว่า req.timestamp ใหม่กว่า lastViewedTimestamp
+            return true;
         }
         
         return false;
     }).map(req => {
         const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
         const isNewMessage = lastMessage?.sender === 'fezeaix';
-        const isStatusChange = req.status !== commissionRequests.find(r => r.id === req.id)?.status;
         
         return ({
             id: req.id,
@@ -173,11 +173,9 @@ function Layout() {
     // 🚨 ฟังก์ชัน: เคลียร์แจ้งเตือนทั้งหมด (เรียกจากปุ่มใน Dropdown)
     const handleClearAllAdminNotifications = () => {
         if (window.confirm("Are you sure you want to clear all unread notifications?")) {
-            // 1. เคลียร์ New Request IDs ใน Local Storage
             localStorage.removeItem('viewedRequests');
             setViewedRequests([]);
 
-            // 2. เคลียร์ New Message Alerts โดยการอัปเดต timestamp ล่าสุด
             const now = new Date().toISOString();
             const updatedViewedMessages = {}; 
             
@@ -336,17 +334,7 @@ function Layout() {
                     </ul>
                 </nav>
                 <div className="p-5 border-t border-blue-800">
-                    {/* 🚨🚨 Notification Status/Enable Button 🚨🚨 */}
-                    {notificationStatus !== 'granted' && (
-                        <button
-                            onClick={handleEnableNotifications}
-                            className="flex items-center p-3 text-yellow-200 bg-yellow-700 hover:bg-yellow-800 rounded-lg transition-colors duration-200 w-full mb-3"
-                            title="Click to enable sound and desktop notifications for the chat."
-                        >
-                            <FaVolumeUp className="mr-3" />
-                            Enable Notifications
-                        </button>
-                    )}
+                    {/* 🚨🚨 FIX: ลบปุ่ม Enable Notifications ออก (ไม่ใช้ Web Noti แล้ว) */}
                     
                     <button onClick={handleLogout} className="flex items-center p-3 text-blue-200 hover:bg-blue-700 hover:text-white rounded-lg transition-colors duration-200 w-full">
                         <FaSignOutAlt className="mr-3 text-blue-300" /> Logout
