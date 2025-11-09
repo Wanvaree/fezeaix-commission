@@ -1,11 +1,9 @@
-// src/pages/dashboard/MessagesPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext'; // 🚨 ใช้ '../../' ถูกต้องแล้ว
-import { FaPaperPlane, FaPaintBrush, FaTrashAlt } from 'react-icons/fa'; 
+import { useAuth } from '../../context/AuthContext';
+import { FaPaperPlane, FaPaintBrush, FaTrashAlt } from 'react-icons/fa'; // 🚨 Import FaTrashAlt
 
 // Component ย่อยสำหรับหน้าต่างแชท (Client Side)
 function ClientCommissionChat({ request, currentUser, addMessage }) {
-// ... (ClientCommissionChat Code)
     const [messageInput, setMessageInput] = useState('');
     const chatEndRef = useRef(null);
 
@@ -21,12 +19,76 @@ function ClientCommissionChat({ request, currentUser, addMessage }) {
             setMessageInput('');
         }
     };
-    
-    // ... (Return Chat UI)
-    
+
     return (
         <div className="flex flex-col h-full bg-white border border-gray-200 rounded-xl shadow-md">
-            {/* ... (Chat Content) */}
+            <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center">
+                <FaPaintBrush size={24} className="mr-3 text-purple-500" />
+                <div>
+                    <h3 className="text-xl font-bold text-gray-800">Chat for: {request.commissionType}</h3>
+                    <p className="text-sm text-gray-500">Artist: Fezeaix | Status: {request.status}</p>
+                </div>
+            </div>
+            
+            {/* Message Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll">
+                {/* แก้ไข: ตรวจสอบว่ามี messages ก่อน map */}
+                {request.messages && request.messages.map((msg) => {
+                    const isCurrentUser = msg.sender === currentUser.username;
+                    const isSystem = msg.sender === 'System';
+                    
+                    if (isSystem) {
+                         return (
+                            <div key={msg.id} className="text-center text-xs text-gray-400 italic">
+                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {msg.text}
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div 
+                            key={msg.id} 
+                            className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                        >
+                            <div className={`max-w-[70%] px-4 py-2 rounded-xl shadow-md ${
+                                isCurrentUser 
+                                ? 'bg-purple-600 text-white rounded-br-none' 
+                                : 'bg-gray-200 text-gray-800 rounded-tl-none'
+                            }`}>
+                                <p className="font-semibold text-xs mb-1 opacity-80">
+                                    {isCurrentUser ? 'Me' : msg.sender}
+                                </p>
+                                <p className="text-sm break-words">{msg.text}</p>
+                                <span className={`block text-right mt-1 ${isCurrentUser ? 'text-purple-100' : 'text-gray-500'} text-xs`}>
+                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
+                <div ref={chatEndRef} />
+            </div>
+
+            {/* Message Input 🚨🚨 ส่วนนี้คือที่หายไปและถูกกู้คืนแล้ว 🚨🚨 */}
+            <form onSubmit={handleSend} className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="flex space-x-2">
+                    <input
+                        type="text"
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        placeholder="Type a message to the artist..."
+                        className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                    />
+                    <button
+                        type="submit"
+                        className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-xl transition-colors duration-200 disabled:bg-gray-400"
+                        disabled={!messageInput.trim()}
+                    >
+                        {/* 🚨🚨 FIX: แก้ไข JSX Syntax Error ตรงนี้ 🚨🚨 */}
+                        <FaPaperPlane size={20} /> 
+                    </button>
+                </div>
+            </form>
         </div>
     );
 }
@@ -53,7 +115,7 @@ function MessagesPage() {
         }
     }, [commissionRequests, user?.username, selectedRequest]); 
     
-    // 🚨🚨 Logic การเคลียร์แจ้งเตือนของ Client เมื่อเลือก Request (Fix 1: Stop Pulse)
+    // 🚨🚨 FIX: Logic การเคลียร์แจ้งเตือนของ Client เมื่อเลือก Request (Fix 1: Stop Pulse)
     useEffect(() => {
         if (selectedRequest && selectedRequest.messages && selectedRequest.messages.length > 0) {
             const lastActivityTimestamp = selectedRequest.timestamp; 
@@ -61,7 +123,7 @@ function MessagesPage() {
             
             // ถ้ามีการอัปเดต (ข้อความ Admin หรือ สถานะเปลี่ยน) และ Client ยังไม่ได้อ่าน
             if (new Date(lastActivityTimestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
-                // 🚨 เรียก function เคลียร์ใน AuthContext เพื่ออัปเดต Firestore
+                // 🚨 เรียก function เคลียร์ใน AuthContext
                 setClientMessagesViewed(selectedRequest.id, lastActivityTimestamp); // ใช้ lastActivityTimestamp เพื่อมาร์คว่าอ่านถึงสถานะล่าสุด
                 
                 // 🚨🚨 FIX: อัปเดต selectedRequest ทันที (Optimistic Update)
