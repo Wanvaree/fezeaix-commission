@@ -1,16 +1,17 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as bcrypt from 'bcryptjs'; 
+// 🚨🚨 FIX: Import getDocs และ writeBatch จาก firebaseConfig
 import { 
     db, 
     collection, 
-    getDocs, // 🚨 Import getDocs
+    getDocs, 
     doc, 
     setDoc, 
     updateDoc, 
     onSnapshot,
     deleteDoc,
-    writeBatch // 🚨 Import writeBatch
+    writeBatch 
 } from '../firebaseConfig'; 
 
 const AuthContext = createContext(null);
@@ -184,7 +185,7 @@ export const AuthProvider = ({ children }) => {
                  let isMatch = false;
                  let upgradedToHash = false; 
 
-                 // 🚨🚨 FIX: Logic ตรวจสอบ Plain Text/Hash (FIXED) 🚨🚨
+                 // 🚨🚨 FIX: Logic ตรวจสอบ Plain Text/Hash 🚨🚨
                  const isHashed = storedPassword?.startsWith('$2a$') || storedPassword?.startsWith('$2b$') || storedPassword?.startsWith('$2y$') || (storedPassword?.length || 0) > 50;
 
                  if (isHashed) { 
@@ -195,7 +196,6 @@ export const AuthProvider = ({ children }) => {
                      }
                  }
                  
-                 // ถ้ายังไม่ Match หรือไม่ใช่ Hash ให้ลอง Plain Text
                  if (!isMatch) {
                      if (password === storedPassword) {
                          isMatch = true;
@@ -395,7 +395,6 @@ export const AuthProvider = ({ children }) => {
     };
     
     // 🚨 ฟังก์ชันใหม่: เคลียร์ข้อความทั้งหมดของ Client 🚨
-    // สำหรับ Admin จะเคลียร์ผ่าน Local Storage ใน Layout Component
     const clearClientNotifications = async () => {
          if (!user || user.role === 'admin') return { success: false, message: 'Not a client user.' };
 
@@ -438,7 +437,7 @@ export const AuthProvider = ({ children }) => {
         changePassword, 
         setClientMessagesViewed, 
         requestNotificationPermission, 
-        clearClientNotifications, // 🚨 Export Clear Function สำหรับ Client
+        clearClientNotifications, 
     };
 
     return (
