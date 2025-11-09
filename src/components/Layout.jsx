@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 
 // 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Notification Dropdown)
 function NotificationDropdown({ requests, handleClose }) {
-    // requests ที่ส่งมาคือ requests ที่มี status เป็น 'New Request' แล้ว
     
     return (
         <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in z-50 border border-gray-200">

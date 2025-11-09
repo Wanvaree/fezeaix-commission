@@ -139,25 +139,43 @@ export const AuthProvider = ({ children }) => {
             if (foundUser) {
                  const storedPassword = foundUser.password;
                  let isMatch = false;
+                 let upgradedToHash = false; // Flag เพื่อตรวจสอบว่ามีการอัปเกรดหรือไม่
 
-                 // 🚨🚨 FIX: รองรับรหัสผ่านแบบ Plain Text สำหรับผู้ใช้เก่า 🚨🚨
-                 // ตรวจสอบความยาว: ถ้าไม่น่าจะเป็น Hash (Hash bcrypt มักจะยาว 60)
-                 if (storedPassword.length < 60) { 
-                     // กรณีที่ 1: รหัสผ่านเป็น Plain Text (Old Users)
-                     isMatch = password === storedPassword;
-                 } else {
-                     // กรณีที่ 2: รหัสผ่านเป็น Hash (New Users หรือผู้ใช้ที่เปลี่ยนรหัสผ่านแล้ว)
-                     isMatch = await bcrypt.compare(password, storedPassword);
+                 // 🚨🚨 Logic ใหม่: ลองเปรียบเทียบกับ Hash ก่อน 🚨🚨
+                 // Hash bcrypt จะขึ้นต้นด้วย $2a$, $2b$, หรือ $2y$ และมีความยาว 60
+                 const isHashed = storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2y$') || storedPassword.length > 50;
+
+                 if (isHashed) { 
+                     // กรณีที่ 1: รหัสผ่านเป็น Hash (ผู้ใช้ใหม่/ที่เปลี่ยนรหัสผ่านแล้ว)
+                     try {
+                         isMatch = await bcrypt.compare(password, storedPassword);
+                     } catch (e) {
+                         // หาก bcrypt compare ล้มเหลว (เช่น storedPassword ไม่ใช่ Hash ที่ถูกต้อง) 
+                         // ให้ลองเปรียบเทียบแบบ Plain Text ต่อไป
+                         console.warn("Bcrypt compare failed, trying plain text match.", e);
+                     }
                  }
-                
+                 
+                 // ถ้ายังไม่ Match หรือไม่ใช่ Hash ที่ถูกต้อง ให้ลอง Plain Text
+                 if (!isMatch) {
+                     // กรณีที่ 2: รหัสผ่านเป็น Plain Text (ผู้ใช้เก่า)
+                     if (password === storedPassword) {
+                         isMatch = true;
+                         upgradedToHash = true;
+                     }
+                 }
+
+
                 if (isMatch) {
                     // หาก Login สำเร็จด้วย Plain Text Password
-                    if (storedPassword.length < 60) {
-                         console.warn(`User ${username} logged in with plain text password. Recommending password change for hashing.`);
-                         // 🚨 หากเป็น Plain Text, ให้ทำการ Hash และ Update ทันทีเพื่อย้ายไปใช้ Hash
+                    if (upgradedToHash) {
+                         console.warn(`User ${username} logged in with plain text password. Upgrading to hash...`);
+                         // 🚨 ทำการ Hash และ Update ทันทีเพื่อย้ายไปใช้ Hash
                          const newHashedPassword = await bcrypt.hash(password, 10);
                          const userDocRef = doc(db, "users", username);
                          await updateDoc(userDocRef, { password: newHashedPassword });
+                         // อัปเดต user object ใน state ด้วย hash ใหม่เพื่อให้ Logic อื่นๆ (เช่น changePassword) ทำงานถูกต้อง
+                         foundUser.password = newHashedPassword; 
                     }
                     
                     const { password: _, ...userSessionData } = foundUser;
@@ -171,7 +189,7 @@ export const AuthProvider = ({ children }) => {
             
         } catch (error) {
              console.error("Login error:", error);
-             return { success: false, message: 'Login failed due to server error.' };
+             return { success: false, message: 'Login failed due to server error. (This might be due to an unexpected non-string/null password field in DB)' };
         }
     };
 
@@ -195,19 +213,21 @@ export const AuthProvider = ({ children }) => {
             let isCurrentPasswordCorrect = false;
 
             // 🚨🚨 FIX: ตรวจสอบรหัสผ่านปัจจุบัน รองรับทั้ง Plain Text และ Hash 🚨🚨
-            if (storedPassword.length < 60) {
-                // กรณี Plain Text
-                isCurrentPasswordCorrect = currentPassword === storedPassword;
-            } else {
+            const isHashed = storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2y$') || storedPassword.length > 50;
+            
+            if (isHashed) {
                 // กรณี Hash
                 isCurrentPasswordCorrect = await bcrypt.compare(currentPassword, storedPassword);
+            } else {
+                // กรณี Plain Text
+                isCurrentPasswordCorrect = currentPassword === storedPassword;
             }
             
             if (!isCurrentPasswordCorrect) {
                 return { success: false, message: 'Current password is incorrect.' };
             }
 
-            // 🚨 HASH รหัสผ่านใหม่ 🚨
+            // 🚨 HASH รหัสผ่านใหม่ (ไม่ว่าจะเก่าเป็น Plain Text หรือ Hash) 🚨
             const newHashedPassword = await bcrypt.hash(newPassword, 10);
             
             const userDocRef = doc(db, "users", user.username);
@@ -216,6 +236,7 @@ export const AuthProvider = ({ children }) => {
                 password: newHashedPassword
             });
 
+            // อัปเดต state/Local Storage ด้วยข้อมูลที่ไม่มีรหัสผ่าน
             const updatedUser = { ...user, password: newHashedPassword }; 
             const { password: _, ...userSessionData } = updatedUser;
             setUser(userSessionData);
@@ -229,6 +250,7 @@ export const AuthProvider = ({ children }) => {
     };
     
     // ... (Commission & Message Logic เหมือนเดิม)
+
     const addCommissionRequest = async (requestDetails) => {
         try {
             const newRequest = {
