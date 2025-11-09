@@ -36,7 +36,7 @@ function NotificationDropdown({ requests, handleClose }) {
                             </p>
                             <span className="text-xs text-gray-400 mt-1 self-end">
                                 {new Date(request.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                            </span >
                         </Link>
                     ))}
                     {/* 🚨 ลิงก์ดูทั้งหมด */}
@@ -61,7 +61,7 @@ function Layout() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null); 
     
-    // 🚨 State ใหม่สำหรับ "ดูแล้ว" (ใช้ใน Local state แทนการยุ่งกับ DB)
+    // 🚨 State ใหม่สำหรับ "ดูแล้ว" (ใช้ใน Local state)
     // เก็บ ID ของ New Request ที่ถูก Admin คลิกดูแล้ว
     const [viewedRequests, setViewedRequests] = useState(() => {
         const stored = localStorage.getItem('viewedRequests');
@@ -225,7 +225,8 @@ function Layout() {
                                     title={newRequestsCount > 0 ? `${newRequestsCount} New Request(s)` : 'No new notifications'}
                                 >
                                     <FaBell className="text-xl" />
-                                    {newRequestsCount > 0 && (
+                                    {/* 🚨 ใช้ newRequestsCount ที่นับเฉพาะที่ยังไม่ได้ดู */}
+                                    {newRequestsCount > 0 && ( 
                                         <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full">
                                             {newRequestsCount}
                                         </span>
@@ -234,6 +235,7 @@ function Layout() {
                                 
                                 {isDropdownOpen && (
                                     <NotificationDropdown 
+                                        // 🚨 Dropdown ควรแสดงแค่ New Request
                                         requests={commissionRequests.filter(req => req.status === 'New Request')} 
                                         handleClose={closeDropdown} 
                                     />

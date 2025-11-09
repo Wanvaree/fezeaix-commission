@@ -62,7 +62,7 @@ if (passwordError) {
 }
 // <--- สิ้นสุดการตรวจสอบ --->
 
-// 🚨 ใช้ await ในการเรียก register
+// 🚨 ใช้ await ในการเรียก register (ซึ่งจะทำการ Hashing)
 const result = await register(username, password); // เรียกใช้ฟังก์ชัน register จาก Context
 
 if (result.success) {

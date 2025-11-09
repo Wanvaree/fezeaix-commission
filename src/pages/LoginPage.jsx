@@ -19,7 +19,7 @@ if (!username || !password) {
     return;
 }
 
-// 🚨 ใช้ await เพื่อรอผลลัพธ์จากฟังก์ชัน login
+// 🚨 ใช้ await เพื่อรอผลลัพธ์จากฟังก์ชัน login (ซึ่งมีการตรวจสอบ Hashed/Plain Text Password)
 const result = await login(username, password); 
 
 if (result.success) {
@@ -30,7 +30,6 @@ if (result.success) {
 };
 
 return (
-// ... (โค้ด HTML/Tailwind CSS เหมือนเดิม)
 <div className="flex items-center justify-center min-h-screen bg-blue-800">
 <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
 <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">Login to Fezeaix Commission</h2>

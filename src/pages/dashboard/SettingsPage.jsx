@@ -1,4 +1,4 @@
-// src/pages/SettingPage.jsx
+// src/pages/dashboard/SettingsPage.jsx
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -66,7 +66,7 @@ function PasswordChangeForm() {
             return;
         }
 
-        // 🚨 ใช้ await ในการเรียก changePassword
+        // 🚨 ใช้ await ในการเรียก changePassword (ซึ่งจะมีการตรวจสอบ Hash/Plain Text)
         const result = await changePassword(currentPassword, newPassword);
 
         if (result.success) {
@@ -115,7 +115,7 @@ function PasswordChangeForm() {
                         id="confirmNewPassword"
                         value={confirmNewPassword}
                         onChange={(e) => setConfirmNewPassword(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         required
                     />
                 </div>
