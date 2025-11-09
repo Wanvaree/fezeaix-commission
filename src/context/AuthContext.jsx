@@ -1,4 +1,3 @@
-// src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as bcrypt from 'bcryptjs'; 
 // 🚨🚨 FIX: Import writeBatch จาก firebase/firestore โดยตรง
@@ -360,7 +359,9 @@ export const AuthProvider = ({ children }) => {
             
             await updateDoc(requestDocRef, {
                 messages: [...(currentRequest.messages || []), newMessage], 
-                status: newStatus 
+                status: newStatus,
+                // 🚨🚨 FIX: เพิ่มการอัปเดต timestamp เพื่อ Trigger การแจ้งเตือนใน Layout 🚨🚨
+                timestamp: new Date().toISOString(), 
             });
 
             return { success: true };
