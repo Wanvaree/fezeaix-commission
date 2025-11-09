@@ -1,8 +1,7 @@
-// src/components/Layout.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp, FaTrashAlt } from 'react-icons/fa'; 
-import { useAuth } from '../context/AuthContext'; // 🚨🚨 FIX: ตรวจสอบให้แน่ใจว่าเป็น '../context/AuthContext'
+import { useAuth } from '../context/AuthContext';
 
 // 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Admin/Client Dropdown)
 function NotificationDropdown({ alerts, isClient, handleClose, handleClearAll }) { 
@@ -98,7 +97,6 @@ function Layout() {
         
         const lastViewedTimestamp = req.lastViewedByClient?.[user.username] || new Date(0).toISOString();
         // ตรวจสอบจาก req.timestamp (ซึ่งจะเปลี่ยนเมื่อมีข้อความใหม่หรือสถานะเปลี่ยน)
-        // *** ถ้า lastViewedByClient ถูกอัปเดตใน MessagesPage.jsx ตัวเลขนี้จะลดลง ***
         const isUnread = new Date(req.timestamp).getTime() > new Date(lastViewedTimestamp).getTime(); 
         
         if (isUnread) {
@@ -108,13 +106,19 @@ function Layout() {
         return false;
     }).map(req => {
         const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
-        const isNewMessage = lastMessage?.sender === 'fezeaix';
+        
+        // Check if the last activity was an Admin message (fezeaix is the admin's fixed username)
+        const isNewMessageFromAdmin = lastMessage?.sender === 'fezeaix'; 
         
         return ({
             id: req.id,
-            type: isNewMessage ? 'MESSAGE' : 'STATUS', 
+            // ถ้าข้อความล่าสุดมาจาก Admin, จัดประเภทเป็น MESSAGE, ไม่เช่นนั้นเป็น STATUS
+            type: isNewMessageFromAdmin ? 'MESSAGE' : 'STATUS', 
             title: req.commissionType,
-            subtitle: isNewMessage ? lastMessage.text : `Status updated to: ${req.status}`,
+            // 🚨🚨 FIX: ปรับปรุง Subtitle ให้ชัดเจนขึ้น 🚨🚨
+            subtitle: isNewMessageFromAdmin 
+                ? `Artist: ${lastMessage.text}` // แสดงข้อความพร้อมระบุว่า Artist ส่งมา
+                : `Status updated to: ${req.status}`, // แสดงสถานะ
             timestamp: req.timestamp
         });
     });
