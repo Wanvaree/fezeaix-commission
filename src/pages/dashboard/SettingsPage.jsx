@@ -143,7 +143,7 @@ function SettingsPage() {
             <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Account Settings</h2>
             
             <div className="mb-6">
-                <p className="text-gray-600 mb-2">Manage your account details and security settings here.</p>
+                <p className="text-gray-600 mb-2">จัดการรายละเอียดบัญชีและการตั้งค่าความปลอดภัยของคุณได้ที่นี่</p>
                 <div className="space-y-1">
                     <p className="text-lg font-medium text-gray-700">Username: <span className="font-bold text-blue-600">{user?.username}</span></p>
                     <p className="text-lg font-medium text-gray-700">Role: <span className={`font-bold ${isAdmin ? 'text-red-600' : 'text-green-600'}`}>{isAdmin ? 'Artist (Admin)' : 'Client (User)'}</span></p>
@@ -157,7 +157,8 @@ function SettingsPage() {
             {isAdmin && (
                 <div className="mt-8 border-t pt-6">
                     <h3 className="text-xl font-bold text-gray-800 mb-4">Artist/Commission Settings</h3>
-                    <p className="text-gray-600">This area is for managing commission terms, pricing, and other artist-specific settings.</p>
+                    {/* 🚨 FIX: แก้ไขข้อความ Admin */}
+                    <p className="text-gray-600">พื้นที่นี้ใช้สำหรับจัดการเงื่อนไขคอมมิชชัน ราคาค่าจ้าง และการตั้งค่าอื่น ๆ ในอนาคตcoming soon...</p>
                 </div>
             )}
         </div>
