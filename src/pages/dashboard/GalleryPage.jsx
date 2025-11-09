@@ -1,4 +1,3 @@
-// src/pages/dashboard/GalleryPage.jsx
 import React, { useState } from 'react';
 
 // Import รูปภาพทั้งหมด

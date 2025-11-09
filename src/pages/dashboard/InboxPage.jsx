@@ -201,13 +201,12 @@ function InboxPage() {
     return (
         <div className="p-6 h-full bg-white rounded-xl shadow-lg flex flex-col">
             <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Commission Inbox</h2>
-            <p className="text-gray-600 mb-6">Here you can manage incoming commission requests and communicate directly with the clients.</p>
 
             <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
                 {/* Panel ซ้าย: รายการ Commission Request */}
                 <div className="overflow-y-auto custom-scroll md:col-span-1">
                     {commissionRequests.length === 0 ? (
-                        <p className="text-gray-500 text-center py-8">No new commission requests in your inbox.</p>
+                        <p className="text-gray-500 text-center py-8">ยังไม่มีงานเข้า กินมาม่าไปก่อนนะจ๊ะ.</p>
                     ) : (
                         <div className="space-y-3">
                             {sortedRequests

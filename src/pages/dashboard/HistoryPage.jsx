@@ -41,10 +41,10 @@ function HistoryPage() {
             <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
                 <FaHistory className="mr-3 text-gray-500" /> My Commission History
             </h2>
-            <p className="text-gray-600 mb-6">View all your past and current commission requests.</p>
+            <p className="text-gray-600 mb-6">ขอบคุณที่ไว้ใจอุดหนุนค่ะ ไว้กลับมาจ้างอีกนะคะ💖!</p>
             
             {userHistory.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">You have no commission history yet.</p>
+                <p className="text-gray-500 text-center py-8">ขณะนี้ยังไม่มีประวัติการสั่งซื้อค่ะ😢</p>
             ) : (
                 <div className="overflow-x-auto shadow-md rounded-lg border border-gray-200">
                     <table className="min-w-full divide-y divide-gray-200">

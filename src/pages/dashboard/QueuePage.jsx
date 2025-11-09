@@ -123,13 +123,13 @@ function QueuePage() {
             <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Commission Queue</h2>
             <p className="text-gray-600 mb-6">
                 {isAdmin ? 
-                    "As the artist, you can manage the status and priority of all client commissions here." :
-                    "View the current queue and the status of your commission requests here."
+                    null /* 🚨 FIX: ลบข้อความ Admin */ :
+                    "สามรถเช็คคิว เช็คสถานะคิวของคุณได้ที่หน้านี้เลยค่ะ จะคอยอัพเดทให้อย่างสม่ำเสมอค่ะ💕"
                 }
             </p>
             
             {sortedRequests.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">The commission queue is currently empty.</p>
+                <p className="text-gray-500 text-center py-8">คิวคอมมิชชันขณะนี้ยังว่างอยู่ค่ะ</p>
             ) : (
                 <div className="overflow-x-auto shadow-md rounded-lg border border-gray-200">
                     <table className="min-w-full divide-y divide-gray-200">
