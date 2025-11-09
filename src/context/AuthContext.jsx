@@ -1,14 +1,16 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import * as bcrypt from 'bcryptjs'; // 🚨 IMPORT BCYPTJS
+import * as bcrypt from 'bcryptjs'; 
 import { 
     db, 
     collection, 
+    getDocs, // 🚨 Import getDocs
     doc, 
     setDoc, 
     updateDoc, 
     onSnapshot,
-    deleteDoc
+    deleteDoc,
+    writeBatch // 🚨 Import writeBatch
 } from '../firebaseConfig'; 
 
 const AuthContext = createContext(null);
@@ -34,7 +36,6 @@ const requestNotificationPermission = () => {
 // 🚨 ฟังก์ชัน Global สำหรับแสดง Web Notification 🚨
 const showWebNotification = (title, body) => {
     if (Notification.permission === "granted") {
-        // ใช้ icon เพื่อให้ดูสวยงามขึ้น (ต้องมีใน public folder)
         new Notification(title, { body: body, icon: '/pwa-192x192-v2.png' }); 
     }
 };
@@ -183,11 +184,10 @@ export const AuthProvider = ({ children }) => {
                  let isMatch = false;
                  let upgradedToHash = false; 
 
-                 // 🚨🚨 FIX: Logic ตรวจสอบ Plain Text/Hash 🚨🚨
+                 // 🚨🚨 FIX: Logic ตรวจสอบ Plain Text/Hash (FIXED) 🚨🚨
                  const isHashed = storedPassword?.startsWith('$2a$') || storedPassword?.startsWith('$2b$') || storedPassword?.startsWith('$2y$') || (storedPassword?.length || 0) > 50;
 
                  if (isHashed) { 
-                     // กรณีที่ 1: รหัสผ่านเป็น Hash 
                      try {
                          isMatch = await bcrypt.compare(password, storedPassword);
                      } catch (e) {
@@ -280,7 +280,7 @@ export const AuthProvider = ({ children }) => {
     };
     
     // ... (Commission CRUDs)
-
+    
     const addCommissionRequest = async (requestDetails) => {
         try {
             const newRequest = {
@@ -394,6 +394,33 @@ export const AuthProvider = ({ children }) => {
          }
     };
     
+    // 🚨 ฟังก์ชันใหม่: เคลียร์ข้อความทั้งหมดของ Client 🚨
+    // สำหรับ Admin จะเคลียร์ผ่าน Local Storage ใน Layout Component
+    const clearClientNotifications = async () => {
+         if (!user || user.role === 'admin') return { success: false, message: 'Not a client user.' };
+
+         try {
+            const commissionsSnapshot = await getDocs(commissionsCollectionRef);
+            const batch = writeBatch(db); 
+            const now = new Date().toISOString();
+            
+            commissionsSnapshot.docs.forEach(docSnapshot => {
+                 const req = docSnapshot.data();
+                 if (req.requesterUsername === user.username) {
+                     const reqRef = doc(db, "commissions", docSnapshot.id);
+                     batch.update(reqRef, {
+                         [`lastViewedByClient.${user.username}`]: now
+                     });
+                 }
+            });
+            await batch.commit();
+            return { success: true, message: 'Client notifications cleared.' };
+         } catch (error) {
+             console.error("Error clearing client notifications:", error);
+             return { success: false, message: 'Failed to clear client notifications.' };
+         }
+    };
+    
     const value = {
         user,
         loading,
@@ -410,7 +437,8 @@ export const AuthProvider = ({ children }) => {
         updateCommissionStatus,
         changePassword, 
         setClientMessagesViewed, 
-        requestNotificationPermission, // 🚨 Export ฟังก์ชันขออนุญาต
+        requestNotificationPermission, 
+        clearClientNotifications, // 🚨 Export Clear Function สำหรับ Client
     };
 
     return (
