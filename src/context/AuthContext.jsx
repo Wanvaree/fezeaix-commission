@@ -1,5 +1,6 @@
 // src/context/AuthContext.jsx
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react'; 
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import * as bcrypt from 'bcryptjs'; // 🚨 IMPORT BCYPTJS สำหรับ Hashing
 // 🚨 Import Firestore Functions และ db
 import { 
     db, 
@@ -18,27 +19,22 @@ export const useAuth = () => useContext(AuthContext);
 const usersCollectionRef = collection(db, "users");
 const commissionsCollectionRef = collection(db, "commissions");
 
-// 🚨 เพิ่ม BASE_URL เพื่อรองรับ GitHub Pages
-const BASE_URL = import.meta.env.BASE_URL;
-
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    // 🚨 States ใหม่สำหรับข้อมูลที่ดึงจาก Firestore
     const [commissionRequests, setCommissionRequests] = useState([]);
-    const [allRegisteredUsers, setAllRegisteredUsers] = useState([]);
-    const [unreadMessagesCount, setUnreadMessagesCount] = useState(0); // 🚨 State ใหม่สำหรับ Client Notifications
-    
-    // 🚨 1. Ref สำหรับเก็บสถานะเก่าของ Requests
+    const [allRegisteredUsers, setAllRegisteredUsers] = useState([]); 
     const requestsRef = useRef([]); 
-
+    
     // -----------------------------------------------------------
     // 1. useEffect สำหรับ User State (ยังใช้ Local Storage สำหรับ Session)
     // -----------------------------------------------------------
     useEffect(() => {
         const storedUser = localStorage.getItem('currentUser');
         if (storedUser) {
-            setUser(JSON.parse(storedUser));
+            const parsedUser = JSON.parse(storedUser);
+            const { password: _, ...userWithoutPassword } = parsedUser;
+            setUser(userWithoutPassword);
         }
         setLoading(false);
     }, []);
@@ -54,68 +50,71 @@ export const AuthProvider = ({ children }) => {
             console.error("Error fetching users:", error);
         });
 
-        // Cleanup function
         return () => unsubscribe();
     }, []);
 
     // -----------------------------------------------------------
-    // 3. useEffect สำหรับ Fetch/Listen Commission Requests (Realtime)
+    // 3. useEffect สำหรับ Fetch/Listen Commission Requests (Realtime) & Notification Sound (Updated)
     // -----------------------------------------------------------
     useEffect(() => {
         const unsubscribe = onSnapshot(commissionsCollectionRef, (snapshot) => {
-            const requestsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
+            const requestsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             
-            let clientUnreadCount = 0; // 🚨 ตัวแปรนับข้อความสำหรับ Client
-
-            // 🚨🚨 Logic การแจ้งเตือน 🚨🚨
+            // 🚨🚨 Logic การแจ้งเตือน (รวม Admin และ Client) 🚨🚨
             if (user && requestsRef.current.length > 0 && requestsData.length > 0) {
                 
+                let shouldPlayRequestSound = false; // สำหรับ Admin
+                let shouldPlayMessageSound = false; // สำหรับ Admin/Client
+
                 requestsData.forEach(newReq => {
                     const oldReq = requestsRef.current.find(r => r.id === newReq.id);
-                    
-                    // Logic สำหรับเล่นเสียง (สำหรับ Admin & Client)
-                    if (oldReq && newReq.messages && newReq.messages.length > (oldReq.messages ? oldReq.messages.length : 0)) {
-                         const lastMessage = newReq.messages[newReq.messages.length - 1];
-                         
-                         // 🚨 สำหรับ Admin: แจ้งเตือนข้อความใหม่จาก Client
-                         if (user.role === 'admin' && lastMessage.sender !== 'System' && lastMessage.sender !== user.username) {
-                              const audio = new Audio(`${BASE_URL}notification.mp3`); 
-                              audio.play().catch(e => console.log("Audio playback blocked", e));
-                         }
-                         
-                         // 🚨 สำหรับ Client: แจ้งเตือนข้อความใหม่จาก Artist (หรือ System)
-                         if (user.role === 'user' && newReq.requesterUsername === user.username && lastMessage.sender !== user.username) {
-                              const audio = new Audio(`${BASE_URL}notification.mp3`); 
-                              audio.play().catch(e => console.log("Audio playback blocked", e));
-                         }
-                    }
+                    const isNewRequest = !oldReq && user.role === 'admin';
+                    const hasNewMessage = oldReq && (newReq.messages?.length || 0) > (oldReq.messages?.length || 0);
 
-                    // 🚨 Logic สำหรับนับข้อความที่ยังไม่ได้อ่าน (สำหรับ Client)
-                    if (user.role === 'user' && newReq.requesterUsername === user.username && newReq.messages) {
-                        // นับ Request ที่มีข้อความใหม่ที่ยังไม่ได้เปิดดู (ข้อความล่าสุดไม่ใช่ของผู้ใช้ปัจจุบัน)
+                    if (isNewRequest) {
+                        shouldPlayRequestSound = true;
+                        return;
+                    }
+                    
+                    if (hasNewMessage) {
                         const lastMessage = newReq.messages[newReq.messages.length - 1];
-                        if (lastMessage && lastMessage.sender !== user.username) {
-                             clientUnreadCount += 1; 
+                        
+                        // 1. Logic สำหรับ Admin: มีข้อความใหม่จาก Client
+                        if (user.role === 'admin' && newReq.requesterUsername !== lastMessage.sender) {
+                             shouldPlayMessageSound = true;
+                             return;
+                        }
+                        
+                        // 2. Logic สำหรับ Client: มีข้อความใหม่จาก Admin
+                        if (user.role !== 'admin' && newReq.requesterUsername === user.username && lastMessage.sender === 'fezeaix') {
+                            shouldPlayMessageSound = true;
+                            return;
                         }
                     }
                 });
+                
+                // 🚨 เล่นเสียงตามลำดับความสำคัญ
+                if (shouldPlayRequestSound) {
+                     const audio = new Audio('/notification_request.mp3'); 
+                     audio.play().catch(e => console.log("New Request Audio playback blocked", e));
+                } else if (shouldPlayMessageSound) {
+                    const audio = new Audio('/notification.mp3'); 
+                     audio.play().catch(e => console.log("New Message Audio playback blocked", e));
+                }
             }
             
-            requestsRef.current = requestsData; // 🚨 อัปเดต Ref
+            requestsRef.current = requestsData;
             setCommissionRequests(requestsData);
-            setUnreadMessagesCount(clientUnreadCount); // 🚨 อัปเดต State นับข้อความที่ไม่ได้อ่าน
 
         }, (error) => {
             console.error("Error fetching commissions:", error);
         });
 
-        // Cleanup function
         return () => unsubscribe();
-    // 🚨 user ถูกเพิ่มเป็น Dependency
     }, [user]); 
 
     // -----------------------------------------------------------
-    // 4. Auth Logic (ใช้ Firestore)
+    // 4. Auth Logic (ใช้ Firestore และ Hashing)
     // -----------------------------------------------------------
 
     const register = async (username, password) => {
@@ -125,14 +124,16 @@ export const AuthProvider = ({ children }) => {
                 return { success: false, message: 'Username already exists.' };
             }
 
+            // 🚨 HASH PASSWORD (สำหรับผู้ใช้ใหม่) 🚨
+            const hashedPassword = await bcrypt.hash(password, 10); 
+
             const newUser = {
                 username,
-                password, 
+                password: hashedPassword, // 🛡️ เก็บ Hash
                 role: username.toLowerCase() === 'fezeaix' ? 'admin' : 'user'
             };
 
-            // 🚨 บันทึกผู้ใช้ใหม่ลงใน Firestore
-            await setDoc(doc(db, "users", username), newUser); // ใช้ username เป็น Document ID
+            await setDoc(doc(db, "users", username), newUser); 
 
             return { success: true, message: 'Registration successful! Please login.' };
         } catch (error) {
@@ -143,21 +144,61 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (username, password) => {
         try {
-            // ไม่ต้อง Query, ใช้ข้อมูลที่ onSnapshot ดึงมาแล้ว
-            const foundUser = allRegisteredUsers.find(
-                u => u.username === username && u.password === password
-            );
+            const foundUser = allRegisteredUsers.find(u => u.username === username);
 
             if (foundUser) {
-                setUser(foundUser);
-                localStorage.setItem('currentUser', JSON.stringify(foundUser)); 
-                return { success: true, message: 'Login successful!' };
-            } else {
-                return { success: false, message: 'Invalid username or password.' };
-            }
+                 const storedPassword = foundUser.password;
+                 let isMatch = false;
+                 let upgradedToHash = false; // Flag เพื่อตรวจสอบว่ามีการอัปเกรดหรือไม่
+
+                 // 🚨🚨 Logic ใหม่: ตรวจสอบ Plain Text/Hash 🚨🚨
+                 const isHashed = storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2y$') || storedPassword.length > 50;
+
+                 if (isHashed) { 
+                     // กรณีที่ 1: รหัสผ่านเป็น Hash (ผู้ใช้ใหม่/ที่เปลี่ยนรหัสผ่านแล้ว)
+                     try {
+                         isMatch = await bcrypt.compare(password, storedPassword);
+                     } catch (e) {
+                         // หาก bcrypt compare ล้มเหลว (เช่น storedPassword ไม่ใช่ Hash ที่ถูกต้อง) 
+                         // ให้ลองเปรียบเทียบแบบ Plain Text ต่อไป
+                         console.warn("Bcrypt compare failed, trying plain text match.", e);
+                     }
+                 }
+                 
+                 // ถ้ายังไม่ Match หรือไม่ใช่ Hash ที่ถูกต้อง ให้ลอง Plain Text
+                 if (!isMatch) {
+                     // กรณีที่ 2: รหัสผ่านเป็น Plain Text (ผู้ใช้เก่า)
+                     if (password === storedPassword) {
+                         isMatch = true;
+                         upgradedToHash = true;
+                     }
+                 }
+
+
+                if (isMatch) {
+                    // หาก Login สำเร็จด้วย Plain Text Password
+                    if (upgradedToHash) {
+                         console.warn(`User ${username} logged in with plain text password. Upgrading to hash...`);
+                         // 🚨 ทำการ Hash และ Update ทันทีเพื่อย้ายไปใช้ Hash
+                         const newHashedPassword = await bcrypt.hash(password, 10);
+                         const userDocRef = doc(db, "users", username);
+                         await updateDoc(userDocRef, { password: newHashedPassword });
+                         // อัปเดต user object ใน state ด้วย hash ใหม่เพื่อให้ Logic อื่นๆ (เช่น changePassword) ทำงานถูกต้อง
+                         foundUser.password = newHashedPassword; 
+                    }
+                    
+                    const { password: _, ...userSessionData } = foundUser;
+                    setUser(userSessionData);
+                    localStorage.setItem('currentUser', JSON.stringify(userSessionData)); 
+                    return { success: true, message: 'Login successful!' };
+                }
+            } 
+            
+            return { success: false, message: 'Invalid username or password.' };
+            
         } catch (error) {
              console.error("Login error:", error);
-             return { success: false, message: 'Login failed due to server error.' };
+             return { success: false, message: 'Login failed due to server error. (This might be due to an unexpected non-string/null password field in DB)' };
         }
     };
 
@@ -166,30 +207,77 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('currentUser');
     };
     
+    const changePassword = async (currentPassword, newPassword) => {
+        if (!user) {
+            return { success: false, message: 'User not logged in.' };
+        }
+        
+        try {
+            const fullUser = allRegisteredUsers.find(u => u.username === user.username);
+            if (!fullUser) {
+                return { success: false, message: 'User data not found.' };
+            }
+            
+            const storedPassword = fullUser.password;
+            let isCurrentPasswordCorrect = false;
+
+            // 🚨🚨 FIX: ตรวจสอบรหัสผ่านปัจจุบัน รองรับทั้ง Plain Text และ Hash 🚨🚨
+            const isHashed = storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2y$') || storedPassword.length > 50;
+            
+            if (isHashed) {
+                // กรณี Hash
+                isCurrentPasswordCorrect = await bcrypt.compare(currentPassword, storedPassword);
+            } else {
+                // กรณี Plain Text
+                isCurrentPasswordCorrect = currentPassword === storedPassword;
+            }
+            
+            if (!isCurrentPasswordCorrect) {
+                return { success: false, message: 'Current password is incorrect.' };
+            }
+
+            // 🚨 HASH รหัสผ่านใหม่ (ไม่ว่าจะเก่าเป็น Plain Text หรือ Hash) 🚨
+            const newHashedPassword = await bcrypt.hash(newPassword, 10);
+            
+            const userDocRef = doc(db, "users", user.username);
+            
+            await updateDoc(userDocRef, {
+                password: newHashedPassword
+            });
+
+            // อัปเดต state/Local Storage ด้วยข้อมูลที่ไม่มีรหัสผ่าน
+            const updatedUser = { ...user, password: newHashedPassword }; 
+            const { password: _, ...userSessionData } = updatedUser;
+            setUser(userSessionData);
+            localStorage.setItem('currentUser', JSON.stringify(userSessionData));
+            
+            return { success: true, message: 'Password updated successfully!' };
+        } catch (error) {
+             console.error("Change password error:", error);
+             return { success: false, message: 'Failed to change password.' };
+        }
+    };
+    
     // -----------------------------------------------------------
     // 5. Commission & Message Logic (ใช้ Firestore)
     // -----------------------------------------------------------
-
+    
     const addCommissionRequest = async (requestDetails) => {
         try {
-            const initialMessage = `New Commission Request for ${requestDetails.commissionType} received. Price: $${requestDetails.price}. The artist will contact you via this chat to confirm details.`;
-            
             const newRequest = {
-                // ไม่ต้องสร้าง ID ชั่วคราว ใช้ Firestore ID
+                id: Date.now().toString(), 
                 ...requestDetails,
                 status: 'New Request',
                 timestamp: new Date().toISOString(),
                 messages: [{ 
-                    id: Date.now() + 1 + Math.random(),
+                    id: Date.now() + 1,
                     sender: 'System',
-                    text: initialMessage,
+                    text: `New Commission Request for ${requestDetails.commissionType} received. Price: $${requestDetails.price}. The artist will contact you via this chat to confirm details.`,
                     timestamp: new Date().toISOString(),
                 }],
             };
 
-            // 🚨 เพิ่ม Request ลงใน Firestore (Firestore จะสร้าง ID ให้)
-            const docRef = doc(commissionsCollectionRef);
-            await setDoc(docRef, newRequest); 
+            await setDoc(doc(commissionsCollectionRef), newRequest); 
             
             return { success: true, message: 'Commission request submitted successfully! Please check your Messages for updates from the artist.' };
         } catch (error) {
@@ -199,8 +287,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const deleteCommissionRequest = async (requestId) => {
-        try {
-            // 🚨 ลบ Document จาก Firestore
+         try {
             await deleteDoc(doc(db, "commissions", requestId));
             return { success: true, message: 'Commission request deleted.' };
         } catch (error) {
@@ -210,9 +297,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     const updateCommissionStatus = async (requestId, newStatus) => {
-        try {
+         try {
             const requestDocRef = doc(db, "commissions", requestId);
-            // 🚨 อัปเดต Status ใน Firestore
             await updateDoc(requestDocRef, {
                 status: newStatus,
                 timestamp: new Date().toISOString(),
@@ -239,14 +325,13 @@ export const AuthProvider = ({ children }) => {
                 text: messageText,
                 timestamp: new Date().toISOString(),
             };
-            
-            // 🚨 แก้ไขบั๊ก: เปลี่ยนสถานะจาก 'New Request' เป็น 'Pending Payment' (แทน 'In Discussion')
-            const updatedStatus = currentRequest.status === 'New Request' ? 'Pending Payment' : currentRequest.status;
 
-            // 🚨 อัปเดต Messages และ Status ใน Firestore
+            // 🚨 แก้ไขบั๊ก: เปลี่ยนสถานะเริ่มต้นของ Discussion ให้เป็น 'Pending Payment'
+            const newStatus = currentRequest.status === 'New Request' ? 'Pending Payment' : currentRequest.status;
+            
             await updateDoc(requestDocRef, {
                 messages: [...(currentRequest.messages || []), newMessage], 
-                status: updatedStatus
+                status: newStatus 
             });
 
             return { success: true };
@@ -257,7 +342,6 @@ export const AuthProvider = ({ children }) => {
         }
     };
     
-    // 🚨 ฟังก์ชันสำหรับลบข้อความ (ใช้ Firestore)
     const deleteMessageFromCommissionRequest = async (requestId, messageId) => {
         try {
             const requestDocRef = doc(db, "commissions", requestId);
@@ -265,10 +349,8 @@ export const AuthProvider = ({ children }) => {
 
             if (!currentRequest) return { success: false, message: "Request not found." };
 
-            // กรองข้อความที่ไม่ต้องการลบ
             const updatedMessages = currentRequest.messages.filter(msg => msg.id !== messageId);
 
-            // 🚨 อัปเดต Messages ใน Firestore
             await updateDoc(requestDocRef, {
                 messages: updatedMessages,
             });
@@ -281,37 +363,20 @@ export const AuthProvider = ({ children }) => {
         }
     };
     
-    const changePassword = async (currentPassword, newPassword) => {
-        if (!user) {
-            return { success: false, message: 'User not logged in.' };
-        }
-        
-        try {
-             // 1. ตรวจสอบรหัสผ่านปัจจุบัน
-            if (user.password !== currentPassword) {
-                return { success: false, message: 'Current password is incorrect.' };
-            }
+    // 🚨 ฟังก์ชันใหม่: อัปเดตสถานะการดูข้อความของ Client 🚨
+    const setClientMessagesViewed = async (requestId, lastMessageTimestamp) => {
+         if (!user || user.role === 'admin') return;
 
-            const userDocRef = doc(db, "users", user.username);
-            
-            // 🚨 อัปเดต Password ใน Firestore
-            await updateDoc(userDocRef, {
-                password: newPassword
-            });
-
-            // 3. อัปเดตใน currentUser state และ Local Storage
-            const updatedUser = { ...user, password: newPassword };
-            setUser(updatedUser);
-            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-            
-            return { success: true, message: 'Password updated successfully!' };
-        } catch (error) {
-             console.error("Change password error:", error);
-             return { success: false, message: 'Failed to change password.' };
-        }
+         try {
+             const requestDocRef = doc(db, "commissions", requestId);
+             await updateDoc(requestDocRef, {
+                 [`lastViewedByClient.${user.username}`]: lastMessageTimestamp
+             });
+         } catch (error) {
+             console.error("Error setting client viewed timestamp:", error);
+         }
     };
-
-
+    
     const value = {
         user,
         loading,
@@ -321,13 +386,13 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!user,
         isAdmin: user && user.role === 'admin', 
         commissionRequests, 
-        unreadMessagesCount, // 🚨 ส่งค่านี้ออกไปด้วย
         addCommissionRequest,
         deleteCommissionRequest,
         addMessageToCommissionRequest,
         deleteMessageFromCommissionRequest, 
         updateCommissionStatus,
         changePassword, 
+        setClientMessagesViewed, // 🚨 Export ฟังก์ชันใหม่
     };
 
     return (
@@ -336,5 +401,4 @@ export const AuthProvider = ({ children }) => {
         </AuthContext.Provider>
     );
 };
-
 export default AuthProvider;
