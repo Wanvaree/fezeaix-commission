@@ -13,11 +13,9 @@ function ClientCommissionChat({ request, currentUser, addMessage }) {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [request.messages]);
 
-    // 🚨 แก้ไข: เปลี่ยน handleSend ให้เป็น async
     const handleSend = async (e) => {
         e.preventDefault();
         if (messageInput.trim()) {
-            // 🚨 ใช้ await เพื่อรอการส่งข้อความ
             await addMessage(request.id, currentUser.username, messageInput.trim());
             setMessageInput('');
         }
@@ -96,7 +94,7 @@ function ClientCommissionChat({ request, currentUser, addMessage }) {
 }
 
 function MessagesPage() {
-    const { commissionRequests, user, addMessageToCommissionRequest } = useAuth();
+    const { commissionRequests, user, addMessageToCommissionRequest, setClientMessagesViewed } = useAuth();
     // กรองเฉพาะ Commission Request ของผู้ใช้งานปัจจุบัน
     const userRequests = commissionRequests.filter(req => req.requesterUsername === user?.username);
     const [selectedRequest, setSelectedRequest] = useState(userRequests.length > 0 ? userRequests[0] : null);
@@ -115,7 +113,20 @@ function MessagesPage() {
             // เลือกอันล่าสุดเมื่อไม่มีการเลือก
             setSelectedRequest(sortedUserRequests[0]);
         }
-    }, [commissionRequests, user?.username]); 
+    }, [commissionRequests, user?.username, selectedRequest]); 
+    
+    // 🚨 Logic การเคลียร์แจ้งเตือนของ Client
+    useEffect(() => {
+        if (selectedRequest && selectedRequest.messages && selectedRequest.messages.length > 0) {
+            const lastMessage = selectedRequest.messages[selectedRequest.messages.length - 1];
+            // เคลียร์เฉพาะเมื่อข้อความล่าสุดมาจาก Admin
+            if (lastMessage.sender === 'fezeaix') {
+                // ส่ง Timestamp ของข้อความล่าสุดไปบันทึกว่า "Client ดูถึงเวลานี้แล้ว"
+                setClientMessagesViewed(selectedRequest.id, lastMessage.timestamp);
+            }
+        }
+    }, [selectedRequest, setClientMessagesViewed]);
+
 
     // 🚨 แก้ไข: เปลี่ยน handleAddMessage ให้เป็น async/await
     const handleAddMessage = async (requestId, senderUsername, messageText) => {
@@ -132,6 +143,18 @@ function MessagesPage() {
             </div>
         );
     }
+    
+    // 🚨 Logic สำหรับแสดงวงกลมแดงในรายการ Request Panel
+    const hasUnreadMessage = (request) => {
+        if (!request.messages || request.messages.length === 0) return false;
+        
+        const lastMessage = request.messages[request.messages.length - 1];
+        if (lastMessage.sender !== 'fezeaix') return false; // ไม่ใช่ข้อความจาก Admin
+        
+        const lastViewedTimestamp = request.lastViewedByClient?.[user.username] || new Date(0).toISOString();
+        
+        return new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime();
+    };
 
     return (
         <div className="p-6 h-full bg-white rounded-xl shadow-lg flex flex-col">
@@ -143,7 +166,7 @@ function MessagesPage() {
                     <div className="space-y-3">
                         {sortedUserRequests.map((request) => {
                             const isSelected = selectedRequest && selectedRequest.id === request.id;
-                            // แก้ไข: เพิ่มการตรวจสอบว่า messages มีอยู่จริง
+                            const unread = hasUnreadMessage(request); // ตรวจสอบสถานะยังไม่อ่าน
                             const lastMessage = 
                                 request.messages && request.messages.length > 0
                                     ? request.messages[request.messages.length - 1] 
@@ -155,7 +178,7 @@ function MessagesPage() {
                                     onClick={() => setSelectedRequest(request)}
                                     className={`p-4 rounded-lg shadow-sm border transition-all duration-200 cursor-pointer ${
                                         isSelected ? 'bg-purple-100 border-purple-400 ring-2 ring-purple-500' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                                    } flex flex-col`}
+                                    } flex flex-col relative`} // 🚨 เพิ่ม relative
                                 >
                                     <p className="font-semibold text-gray-800 text-lg">
                                         Request: <span className="text-purple-600">{request.commissionType}</span>
@@ -167,6 +190,11 @@ function MessagesPage() {
                                         <p className="text-gray-500 text-xs mt-1 truncate">
                                             <span className="font-medium">{lastMessage.sender === user.username ? 'You' : lastMessage.sender}:</span> {lastMessage.text}
                                         </p>
+                                    )}
+                                    {/* 🚨 วงกลมแดงสำหรับ Unread Message ในรายการ */}
+                                    {unread && (
+                                        <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold w-3 h-3 flex items-center justify-center rounded-full" title="New Message">
+                                        </span>
                                     )}
                                 </div>
                             );
