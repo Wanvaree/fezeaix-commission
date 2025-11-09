@@ -1,4 +1,3 @@
-// src/components/Layout.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp, FaTrashAlt } from 'react-icons/fa'; 
@@ -97,14 +96,29 @@ function Layout() {
         const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
         
         const lastViewedTimestamp = req.lastViewedByClient?.[user.username] || new Date(0).toISOString();
-        // ตรวจสอบจาก req.timestamp (ซึ่งจะเปลี่ยนเมื่อมีข้อความใหม่หรือสถานะเปลี่ยน)
         const isUnread = new Date(req.timestamp).getTime() > new Date(lastViewedTimestamp).getTime(); 
         
-        if (isUnread) {
-            return true;
+        // 🚨🚨 FIX: ตรวจสอบไม่ให้ Client แจ้งเตือนข้อความที่ตัวเองส่งไป
+        if (isUnread && lastMessage && lastMessage.sender === user.username) {
+             // ถ้ามีการอัปเดต (timestamp เปลี่ยน) แต่ผู้ส่งคือตัว Client เอง
+             // และ Request นั้นถูกมาร์กว่ายังไม่ได้อ่าน (isUnread), เราต้องทำการมาร์กมันว่าอ่านแล้ว
+             // เพื่อหยุดการแจ้งเตือนที่เกิดจากกิจกรรมของ Client เอง
+             // อย่างไรก็ตาม, เราจะใช้ตรรกะใน MessagesPage.jsx เพื่อมาร์กการอ่าน 
+             // ที่นี่เราแค่กรองไม่ให้มันแสดง Alert
+             
+             // **เพิ่มเงื่อนไข:** ถ้าเป็นการอัปเดตเนื่องจากข้อความล่าสุดมาจาก Client เอง, ไม่ต้องแสดง Alert
+             if (new Date(lastMessage.timestamp).getTime() === new Date(req.timestamp).getTime()) {
+                  if (lastMessage.sender === user.username) {
+                       return false;
+                  }
+             }
+             // ถ้าไม่ใช่กิจกรรมล่าสุดของ Client เอง หรือเป็นสถานะเปลี่ยน/ข้อความ Admin ให้อนุญาต
+             return true; 
         }
-        
-        return false;
+
+        // ตรวจสอบขั้นสุดท้าย
+        return isUnread;
+
     }).map(req => {
         const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
         
@@ -113,10 +127,10 @@ function Layout() {
         
         return ({
             id: req.id,
-            // ถ้าข้อความล่าสุดมาจาก Admin, จัดประเภทเป็น MESSAGE, ไม่เช่นนั้นเป็น STATUS
+            // 🚨🚨 FIX: ถ้าข้อความล่าสุดมาจาก Admin ให้จัดเป็น MESSAGE เสมอ
             type: isNewMessageFromAdmin ? 'MESSAGE' : 'STATUS', 
             title: req.commissionType,
-            // 🚨🚨 FIX: ปรับปรุง Subtitle ให้ชัดเจนขึ้น 🚨🚨
+            // 🚨🚨 FIX: ปรับปรุง Subtitle
             subtitle: isNewMessageFromAdmin 
                 ? `Artist: ${lastMessage.text}` // แสดงข้อความพร้อมระบุว่า Artist ส่งมา
                 : `Status updated to: ${req.status}`, // แสดงสถานะ
