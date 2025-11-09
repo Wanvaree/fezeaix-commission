@@ -1,7 +1,7 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as bcrypt from 'bcryptjs'; 
-// 🚨🚨 FIX: Import getDocs และ writeBatch จาก firebaseConfig
+// 🚨🚨 FIX: Import writeBatch จาก firebaseConfig
 import { 
     db, 
     collection, 
