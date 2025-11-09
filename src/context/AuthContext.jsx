@@ -1,7 +1,6 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import * as bcrypt from 'bcryptjs'; // 🚨 IMPORT BCYPTJS สำหรับ Hashing
-// 🚨 Import Firestore Functions และ db
+import * as bcrypt from 'bcryptjs'; // 🚨 IMPORT BCYPTJS
 import { 
     db, 
     collection, 
@@ -19,6 +18,27 @@ export const useAuth = () => useContext(AuthContext);
 const usersCollectionRef = collection(db, "users");
 const commissionsCollectionRef = collection(db, "commissions");
 
+// 🚨 ฟังก์ชัน Global สำหรับขออนุญาตแจ้งเตือน 🚨
+const requestNotificationPermission = () => {
+    if (!("Notification" in window)) {
+        console.warn("This browser does not support desktop notification");
+    } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                console.log("Notification permission granted.");
+            }
+        });
+    }
+};
+
+// 🚨 ฟังก์ชัน Global สำหรับแสดง Web Notification 🚨
+const showWebNotification = (title, body) => {
+    if (Notification.permission === "granted") {
+        // ใช้ icon เพื่อให้ดูสวยงามขึ้น (ต้องมีใน public folder)
+        new Notification(title, { body: body, icon: '/pwa-192x192-v2.png' }); 
+    }
+};
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -27,7 +47,7 @@ export const AuthProvider = ({ children }) => {
     const requestsRef = useRef([]); 
     
     // -----------------------------------------------------------
-    // 1. useEffect สำหรับ User State (ยังใช้ Local Storage สำหรับ Session)
+    // 1. useEffect สำหรับ User State (Local Storage Session)
     // -----------------------------------------------------------
     useEffect(() => {
         const storedUser = localStorage.getItem('currentUser');
@@ -40,7 +60,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     // -----------------------------------------------------------
-    // 2. useEffect สำหรับ Fetch/Listen ข้อมูลผู้ใช้ทั้งหมด (สำหรับ Register/Login Logic)
+    // 2. useEffect สำหรับ Fetch/Listen ข้อมูลผู้ใช้ทั้งหมด
     // -----------------------------------------------------------
     useEffect(() => {
         const unsubscribe = onSnapshot(usersCollectionRef, (snapshot) => {
@@ -63,43 +83,55 @@ export const AuthProvider = ({ children }) => {
             // 🚨🚨 Logic การแจ้งเตือน (รวม Admin และ Client) 🚨🚨
             if (user && requestsRef.current.length > 0 && requestsData.length > 0) {
                 
-                let shouldPlayRequestSound = false; // สำหรับ Admin
-                let shouldPlayMessageSound = false; // สำหรับ Admin/Client
+                let shouldPlayRequestSound = false; 
+                let shouldPlayMessageSound = false; 
+                let notificationTitle = '';
+                let notificationBody = '';
 
                 requestsData.forEach(newReq => {
                     const oldReq = requestsRef.current.find(r => r.id === newReq.id);
-                    const isNewRequest = !oldReq && user.role === 'admin';
+                    const isNewRequest = !oldReq; // New Request on DB
                     const hasNewMessage = oldReq && (newReq.messages?.length || 0) > (oldReq.messages?.length || 0);
 
-                    if (isNewRequest) {
+                    // --- 1. New Request Logic (Admin Only) ---
+                    if (isNewRequest && user.role === 'admin') {
                         shouldPlayRequestSound = true;
-                        return;
+                        notificationTitle = 'New Commission Request!';
+                        notificationBody = `${newReq.requesterUsername} requested ${newReq.commissionType}.`;
+                        return; 
                     }
                     
+                    // --- 2. New Message Logic (Admin & Client) ---
                     if (hasNewMessage) {
                         const lastMessage = newReq.messages[newReq.messages.length - 1];
                         
-                        // 1. Logic สำหรับ Admin: มีข้อความใหม่จาก Client
+                        // 2a. Admin: มีข้อความใหม่จาก Client
                         if (user.role === 'admin' && newReq.requesterUsername !== lastMessage.sender) {
                              shouldPlayMessageSound = true;
+                             notificationTitle = `New Message from ${newReq.requesterUsername}`;
+                             notificationBody = `${newReq.commissionType}: ${lastMessage.text}`;
                              return;
                         }
                         
-                        // 2. Logic สำหรับ Client: มีข้อความใหม่จาก Admin
+                        // 2b. Client: มีข้อความใหม่จาก Admin
                         if (user.role !== 'admin' && newReq.requesterUsername === user.username && lastMessage.sender === 'fezeaix') {
                             shouldPlayMessageSound = true;
+                            notificationTitle = 'Message from Artist (Fezeaix)';
+                            notificationBody = `${newReq.commissionType}: ${lastMessage.text}`;
                             return;
                         }
                     }
                 });
                 
-                // 🚨 เล่นเสียงตามลำดับความสำคัญ
+                // 🚨 เล่นเสียงและแสดง Web Notification
                 if (shouldPlayRequestSound) {
                      const audio = new Audio('/notification_request.mp3'); 
                      audio.play().catch(e => console.log("New Request Audio playback blocked", e));
+                     showWebNotification(notificationTitle, notificationBody);
                 } else if (shouldPlayMessageSound) {
                     const audio = new Audio('/notification.mp3'); 
                      audio.play().catch(e => console.log("New Message Audio playback blocked", e));
+                     showWebNotification(notificationTitle, notificationBody);
                 }
             }
             
@@ -149,25 +181,22 @@ export const AuthProvider = ({ children }) => {
             if (foundUser) {
                  const storedPassword = foundUser.password;
                  let isMatch = false;
-                 let upgradedToHash = false; // Flag เพื่อตรวจสอบว่ามีการอัปเกรดหรือไม่
+                 let upgradedToHash = false; 
 
-                 // 🚨🚨 Logic ใหม่: ตรวจสอบ Plain Text/Hash 🚨🚨
-                 const isHashed = storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2y$') || storedPassword.length > 50;
+                 // 🚨🚨 FIX: Logic ตรวจสอบ Plain Text/Hash 🚨🚨
+                 const isHashed = storedPassword?.startsWith('$2a$') || storedPassword?.startsWith('$2b$') || storedPassword?.startsWith('$2y$') || (storedPassword?.length || 0) > 50;
 
                  if (isHashed) { 
-                     // กรณีที่ 1: รหัสผ่านเป็น Hash (ผู้ใช้ใหม่/ที่เปลี่ยนรหัสผ่านแล้ว)
+                     // กรณีที่ 1: รหัสผ่านเป็น Hash 
                      try {
                          isMatch = await bcrypt.compare(password, storedPassword);
                      } catch (e) {
-                         // หาก bcrypt compare ล้มเหลว (เช่น storedPassword ไม่ใช่ Hash ที่ถูกต้อง) 
-                         // ให้ลองเปรียบเทียบแบบ Plain Text ต่อไป
                          console.warn("Bcrypt compare failed, trying plain text match.", e);
                      }
                  }
                  
-                 // ถ้ายังไม่ Match หรือไม่ใช่ Hash ที่ถูกต้อง ให้ลอง Plain Text
+                 // ถ้ายังไม่ Match หรือไม่ใช่ Hash ให้ลอง Plain Text
                  if (!isMatch) {
-                     // กรณีที่ 2: รหัสผ่านเป็น Plain Text (ผู้ใช้เก่า)
                      if (password === storedPassword) {
                          isMatch = true;
                          upgradedToHash = true;
@@ -176,14 +205,11 @@ export const AuthProvider = ({ children }) => {
 
 
                 if (isMatch) {
-                    // หาก Login สำเร็จด้วย Plain Text Password
                     if (upgradedToHash) {
                          console.warn(`User ${username} logged in with plain text password. Upgrading to hash...`);
-                         // 🚨 ทำการ Hash และ Update ทันทีเพื่อย้ายไปใช้ Hash
                          const newHashedPassword = await bcrypt.hash(password, 10);
                          const userDocRef = doc(db, "users", username);
                          await updateDoc(userDocRef, { password: newHashedPassword });
-                         // อัปเดต user object ใน state ด้วย hash ใหม่เพื่อให้ Logic อื่นๆ (เช่น changePassword) ทำงานถูกต้อง
                          foundUser.password = newHashedPassword; 
                     }
                     
@@ -198,7 +224,7 @@ export const AuthProvider = ({ children }) => {
             
         } catch (error) {
              console.error("Login error:", error);
-             return { success: false, message: 'Login failed due to server error. (This might be due to an unexpected non-string/null password field in DB)' };
+             return { success: false, message: 'Login failed due to server error.' };
         }
     };
 
@@ -221,14 +247,11 @@ export const AuthProvider = ({ children }) => {
             const storedPassword = fullUser.password;
             let isCurrentPasswordCorrect = false;
 
-            // 🚨🚨 FIX: ตรวจสอบรหัสผ่านปัจจุบัน รองรับทั้ง Plain Text และ Hash 🚨🚨
-            const isHashed = storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2y$') || storedPassword.length > 50;
+            const isHashed = storedPassword?.startsWith('$2a$') || storedPassword?.startsWith('$2b$') || storedPassword?.startsWith('$2y$') || (storedPassword?.length || 0) > 50;
             
             if (isHashed) {
-                // กรณี Hash
                 isCurrentPasswordCorrect = await bcrypt.compare(currentPassword, storedPassword);
             } else {
-                // กรณี Plain Text
                 isCurrentPasswordCorrect = currentPassword === storedPassword;
             }
             
@@ -236,7 +259,6 @@ export const AuthProvider = ({ children }) => {
                 return { success: false, message: 'Current password is incorrect.' };
             }
 
-            // 🚨 HASH รหัสผ่านใหม่ (ไม่ว่าจะเก่าเป็น Plain Text หรือ Hash) 🚨
             const newHashedPassword = await bcrypt.hash(newPassword, 10);
             
             const userDocRef = doc(db, "users", user.username);
@@ -245,7 +267,6 @@ export const AuthProvider = ({ children }) => {
                 password: newHashedPassword
             });
 
-            // อัปเดต state/Local Storage ด้วยข้อมูลที่ไม่มีรหัสผ่าน
             const updatedUser = { ...user, password: newHashedPassword }; 
             const { password: _, ...userSessionData } = updatedUser;
             setUser(userSessionData);
@@ -258,10 +279,8 @@ export const AuthProvider = ({ children }) => {
         }
     };
     
-    // -----------------------------------------------------------
-    // 5. Commission & Message Logic (ใช้ Firestore)
-    // -----------------------------------------------------------
-    
+    // ... (Commission CRUDs)
+
     const addCommissionRequest = async (requestDetails) => {
         try {
             const newRequest = {
@@ -326,7 +345,6 @@ export const AuthProvider = ({ children }) => {
                 timestamp: new Date().toISOString(),
             };
 
-            // 🚨 แก้ไขบั๊ก: เปลี่ยนสถานะเริ่มต้นของ Discussion ให้เป็น 'Pending Payment'
             const newStatus = currentRequest.status === 'New Request' ? 'Pending Payment' : currentRequest.status;
             
             await updateDoc(requestDocRef, {
@@ -363,7 +381,6 @@ export const AuthProvider = ({ children }) => {
         }
     };
     
-    // 🚨 ฟังก์ชันใหม่: อัปเดตสถานะการดูข้อความของ Client 🚨
     const setClientMessagesViewed = async (requestId, lastMessageTimestamp) => {
          if (!user || user.role === 'admin') return;
 
@@ -392,7 +409,8 @@ export const AuthProvider = ({ children }) => {
         deleteMessageFromCommissionRequest, 
         updateCommissionStatus,
         changePassword, 
-        setClientMessagesViewed, // 🚨 Export ฟังก์ชันใหม่
+        setClientMessagesViewed, 
+        requestNotificationPermission, // 🚨 Export ฟังก์ชันขออนุญาต
     };
 
     return (

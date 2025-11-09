@@ -1,7 +1,7 @@
 // src/components/Layout.jsx
 import React, { useState, useRef, useEffect } from 'react'; 
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown } from 'react-icons/fa'; 
+import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp } from 'react-icons/fa'; 
 import { useAuth } from '../context/AuthContext';
 
 // 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Notification Dropdown)
@@ -53,29 +53,37 @@ function NotificationDropdown({ requests, handleClose }) {
 }
 
 function Layout() {
-    const { user, logout, commissionRequests, isAdmin } = useAuth(); 
+    // 🚨 เพิ่ม requestNotificationPermission
+    const { user, logout, commissionRequests, isAdmin, requestNotificationPermission } = useAuth(); 
     const navigate = useNavigate();
     const location = useLocation(); 
     
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null); 
     
-    // 🚨 State ใหม่สำหรับ "ดูแล้ว" (ใช้ใน Local state) (สำหรับ Admin)
+    // 🚨 State สำหรับติดตามสถานะ Notification Permission และ Admin Viewed Requests
     const [viewedRequests, setViewedRequests] = useState(() => {
         const stored = localStorage.getItem('viewedRequests');
         return stored ? JSON.parse(stored) : [];
     });
+    const [notificationStatus, setNotificationStatus] = useState(Notification.permission);
 
     // 🚨 useEffect สำหรับ Sync viewedRequests ไปยัง Local Storage
     useEffect(() => {
         localStorage.setItem('viewedRequests', JSON.stringify(viewedRequests));
     }, [viewedRequests]);
     
+    // 🚨 Function เพื่อ Handle การโต้ตอบครั้งแรกและขออนุญาต
+    const handleEnableNotifications = () => {
+        requestNotificationPermission();
+        setNotificationStatus(Notification.permission);
+    };
+
     // -----------------------------------------------------------
     // 🚨 Client Notification Logic (FIXED)
     // -----------------------------------------------------------
     const clientNewMessagesCount = commissionRequests.reduce((count, req) => {
-        if (req.requesterUsername !== user?.username) return count; // ไม่ใช่ Request ของตัวเอง
+        if (req.requesterUsername !== user?.username) return count; 
         
         const lastMessage = req.messages && req.messages.length > 0 
             ? req.messages[req.messages.length - 1] 
@@ -83,12 +91,10 @@ function Layout() {
         
         if (!lastMessage) return count;
 
-        // ข้อความใหม่ล่าสุดต้องมาจาก Admin ('fezeaix')
         const isNewFromAdmin = lastMessage.sender === 'fezeaix';
-        
-        // ตรวจสอบว่าข้อความใหม่กว่าเวลาที่ Client เคยเปิดดูครั้งล่าสุด
         const lastViewedTimestamp = req.lastViewedByClient?.[user.username] || new Date(0).toISOString();
         
+        // ถ้าข้อความล่าสุดมาจาก Admin และ Timestamp ใหม่กว่าที่เคยดู
         if (isNewFromAdmin && new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
             return count + 1;
         }
@@ -197,7 +203,7 @@ function Layout() {
                         {/* Messages Link สำหรับ Client ทุกคน (User ทั่วไป) */}
                         {!isAdmin && ( 
                             <li className="mb-2">
-                                {/* 🚨🚨 FIX: เพิ่ม ml-auto และ px-2 py-0.5 เพื่อให้วงกลมแดงใน Sidebar แสดงผลถูกต้อง */}
+                                {/* 🚨🚨 FIX: แสดง Client Message Count ใน Sidebar 🚨🚨 */}
                                 <Link to="/dashboard/messages" className={getLinkClasses('messages')}>
                                     <FaComments className="mr-3 text-blue-300" /> Messages
                                     {clientNewMessagesCount > 0 && ( 
@@ -244,6 +250,18 @@ function Layout() {
                     </ul>
                 </nav>
                 <div className="p-5 border-t border-blue-800">
+                    {/* 🚨🚨 Notification Status/Enable Button 🚨🚨 */}
+                    {notificationStatus !== 'granted' && (
+                        <button
+                            onClick={handleEnableNotifications}
+                            className="flex items-center p-3 text-yellow-200 bg-yellow-700 hover:bg-yellow-800 rounded-lg transition-colors duration-200 w-full mb-3"
+                            title="Click to enable sound and desktop notifications for the chat."
+                        >
+                            <FaVolumeUp className="mr-3" />
+                            Enable Notifications
+                        </button>
+                    )}
+                    
                     <button onClick={handleLogout} className="flex items-center p-3 text-blue-200 hover:bg-blue-700 hover:text-white rounded-lg transition-colors duration-200 w-full">
                         <FaSignOutAlt className="mr-3 text-blue-300" /> Logout
                     </button>
