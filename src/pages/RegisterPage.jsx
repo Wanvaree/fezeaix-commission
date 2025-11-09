@@ -38,7 +38,7 @@ const [successMessage, setSuccessMessage] = useState('');
 const { register } = useAuth();
 const navigate = useNavigate();
 
-// 🚨 แก้ไข: เพิ่ม async
+// 🚨 ยืนยัน: เป็น async และใช้ await
 const handleSubmit = async (e) => {
 e.preventDefault();
 setError('');
@@ -62,7 +62,7 @@ if (passwordError) {
 }
 // <--- สิ้นสุดการตรวจสอบ --->
 
-// 🚨 แก้ไข: เพิ่ม await เพื่อรอการบันทึกข้อมูลลง Firebase
+// 🚨 ใช้ await ในการเรียก register
 const result = await register(username, password); // เรียกใช้ฟังก์ชัน register จาก Context
 
 if (result.success) {

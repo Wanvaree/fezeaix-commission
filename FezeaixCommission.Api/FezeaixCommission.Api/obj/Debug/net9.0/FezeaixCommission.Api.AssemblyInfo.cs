@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FezeaixCommission.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+14c19a16448f900a3c137b0fb2ba0f8e59c404ca")]
 [assembly: System.Reflection.AssemblyProductAttribute("FezeaixCommission.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FezeaixCommission.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

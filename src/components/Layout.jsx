@@ -1,28 +1,27 @@
 // src/components/Layout.jsx
-import React, { useState, useRef, useEffect } from 'react'; // 🚨 Import useRef, useEffect
+import React, { useState, useRef, useEffect } from 'react'; 
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown } from 'react-icons/fa'; // 🚨 Import FaChevronDown
+import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown } from 'react-icons/fa'; 
 import { useAuth } from '../context/AuthContext';
 
 // 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Notification Dropdown)
 function NotificationDropdown({ requests, handleClose }) {
-    const notificationRequests = requests.filter(req => req.status === 'New Request');
+    // requests ที่ส่งมาคือ requests ที่มี status เป็น 'New Request' แล้ว
     
     return (
-        // 🚨 Dropdown Box
         <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in z-50 border border-gray-200">
             <div className="p-3 border-b border-gray-100 flex items-center justify-between">
                 <h3 className="text-lg font-bold text-gray-800">Notifications</h3>
-                <span className="text-sm font-semibold text-red-600">{notificationRequests.length} New</span>
+                <span className="text-sm font-semibold text-red-600">{requests.length} New</span>
             </div>
             
-            {notificationRequests.length === 0 ? (
+            {requests.length === 0 ? (
                 <div className="p-4 text-center text-gray-500 text-sm">
                     No new commission requests.
                 </div>
             ) : (
                 <div className="max-h-80 overflow-y-auto">
-                    {notificationRequests.map((request) => (
+                    {requests.map((request) => (
                         <Link
                             key={request.id}
                             to="/dashboard/inbox"
@@ -59,27 +58,62 @@ function Layout() {
     const navigate = useNavigate();
     const location = useLocation(); 
     
-    // 🚨 State สำหรับ Dropdown
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const dropdownRef = useRef(null); // 🚨 Ref สำหรับตรวจจับการคลิกนอก Dropdown
+    const dropdownRef = useRef(null); 
+    
+    // 🚨 State ใหม่สำหรับ "ดูแล้ว" (ใช้ใน Local state แทนการยุ่งกับ DB)
+    // เก็บ ID ของ New Request ที่ถูก Admin คลิกดูแล้ว
+    const [viewedRequests, setViewedRequests] = useState(() => {
+        const stored = localStorage.getItem('viewedRequests');
+        return stored ? JSON.parse(stored) : [];
+    });
 
+    // 🚨 useEffect สำหรับ Sync viewedRequests ไปยัง Local Storage
+    useEffect(() => {
+        localStorage.setItem('viewedRequests', JSON.stringify(viewedRequests));
+    }, [viewedRequests]);
+    
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
     
-    const newRequestsCount = commissionRequests.filter(req => req.status === 'New Request').length;
+    // 🚨 Logic การนับแจ้งเตือนที่ยังไม่ได้ดู
+    const newRequestsCount = commissionRequests.filter(
+        req => req.status === 'New Request' && !viewedRequests.includes(req.id)
+    ).length;
     
-    // 🚨 ฟังก์ชัน: สลับสถานะ Dropdown
+    // 🚨 ฟังก์ชัน: สลับสถานะ Dropdown และเคลียร์แจ้งเตือน
     const handleNotificationClick = () => {
         if (isAdmin) {
-            setIsDropdownOpen(prev => !prev);
+            setIsDropdownOpen(prev => {
+                // ถ้ากำลังจะเปิด: เคลียร์แจ้งเตือนทั้งหมด
+                if (!prev) {
+                    const newRequestIds = commissionRequests
+                        .filter(req => req.status === 'New Request')
+                        .map(req => req.id);
+                    
+                    setViewedRequests(prevViewed => 
+                        // เพิ่ม ID ใหม่ทั้งหมดเข้าไปใน viewedRequests
+                        [...new Set([...prevViewed, ...newRequestIds])] 
+                    );
+                }
+                return !prev;
+            });
         }
     };
     
     // 🚨 ฟังก์ชัน: ปิด Dropdown
     const closeDropdown = () => {
         setIsDropdownOpen(false);
+        // เมื่อปิด Dropdown, ให้ถือว่ารายการใน Dropdown ถูก "ดู" แล้ว
+        const newRequestIds = commissionRequests
+            .filter(req => req.status === 'New Request')
+            .map(req => req.id);
+                    
+        setViewedRequests(prevViewed => 
+            [...new Set([...prevViewed, ...newRequestIds])]
+        ); 
     };
 
     // 🚨 useEffect: ปิด Dropdown เมื่อคลิกที่อื่น
@@ -200,7 +234,7 @@ function Layout() {
                                 
                                 {isDropdownOpen && (
                                     <NotificationDropdown 
-                                        requests={commissionRequests} 
+                                        requests={commissionRequests.filter(req => req.status === 'New Request')} 
                                         handleClose={closeDropdown} 
                                     />
                                 )}

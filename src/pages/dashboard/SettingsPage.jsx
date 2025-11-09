@@ -1,4 +1,4 @@
-// src/pages/dashboard/SettingsPage.jsx
+// src/pages/SettingPage.jsx
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -38,7 +38,8 @@ function PasswordChangeForm() {
 
     const { changePassword } = useAuth();
 
-    const handleSubmit = (e) => {
+    // 🚨 ยืนยัน: เป็น async และใช้ await
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setSuccessMessage('');
@@ -65,7 +66,8 @@ function PasswordChangeForm() {
             return;
         }
 
-        const result = changePassword(currentPassword, newPassword);
+        // 🚨 ใช้ await ในการเรียก changePassword
+        const result = await changePassword(currentPassword, newPassword);
 
         if (result.success) {
             setSuccessMessage(result.message);
