@@ -72,7 +72,7 @@ function Layout() {
     }, [viewedRequests]);
     
     // -----------------------------------------------------------
-    // 🚨 Client Notification Logic
+    // 🚨 Client Notification Logic (FIXED)
     // -----------------------------------------------------------
     const clientNewMessagesCount = commissionRequests.reduce((count, req) => {
         if (req.requesterUsername !== user?.username) return count; // ไม่ใช่ Request ของตัวเอง
@@ -83,11 +83,13 @@ function Layout() {
         
         if (!lastMessage) return count;
 
-        // ข้อความใหม่ล่าสุดต้องมาจาก Admin ('fezeaix') และต้องใหม่กว่าเวลาที่ Client เคยเปิดดูครั้งล่าสุด
-        const lastViewedTimestamp = req.lastViewedByClient?.[user.username] || 0;
+        // ข้อความใหม่ล่าสุดต้องมาจาก Admin ('fezeaix')
+        const isNewFromAdmin = lastMessage.sender === 'fezeaix';
         
-        // ถ้าข้อความล่าสุดมาจาก Admin และ Timestamp ใหม่กว่าที่เคยดู
-        if (lastMessage.sender === 'fezeaix' && new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
+        // ตรวจสอบว่าข้อความใหม่กว่าเวลาที่ Client เคยเปิดดูครั้งล่าสุด
+        const lastViewedTimestamp = req.lastViewedByClient?.[user.username] || new Date(0).toISOString();
+        
+        if (isNewFromAdmin && new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
             return count + 1;
         }
         
@@ -102,7 +104,7 @@ function Layout() {
         req => req.status === 'New Request' && !viewedRequests.includes(req.id)
     ).length;
     
-    // เลือกตัวนับที่เหมาะสม
+    // เลือกตัวนับที่เหมาะสมสำหรับ Header Bell
     const notificationCount = isAdmin ? adminNewRequestsCount : clientNewMessagesCount;
 
     
@@ -128,7 +130,7 @@ function Layout() {
                 return !prev;
             });
         } else {
-             // 🚨 Client: คลิก Bell นำไปหน้า Messages ทันที
+             // 🚨 Client: คลิก Bell นำไปหน้า Messages ทันที (ไม่เปิด Dropdown)
              navigate('/dashboard/messages');
         }
     };
@@ -194,12 +196,12 @@ function Layout() {
 
                         {/* Messages Link สำหรับ Client ทุกคน (User ทั่วไป) */}
                         {!isAdmin && ( 
-                            <li className="mb-2 relative">
+                            <li className="mb-2">
+                                {/* 🚨🚨 FIX: เพิ่ม ml-auto และ px-2 py-0.5 เพื่อให้วงกลมแดงใน Sidebar แสดงผลถูกต้อง */}
                                 <Link to="/dashboard/messages" className={getLinkClasses('messages')}>
                                     <FaComments className="mr-3 text-blue-300" /> Messages
-                                    {/* 🚨 Client Notification Bell */}
                                     {clientNewMessagesCount > 0 && ( 
-                                        <span className="absolute top-1 right-2 bg-red-500 text-white text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                                        <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                                             {clientNewMessagesCount}
                                         </span>
                                     )}
