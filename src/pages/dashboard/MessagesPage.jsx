@@ -85,7 +85,7 @@ function ClientCommissionChat({ request, currentUser, addMessage }) {
                         className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-xl transition-colors duration-200 disabled:bg-gray-400"
                         disabled={!messageInput.trim()}
                     >
-                        <FaPaperPlane size={20} />
+                        FaPaperPlane size={20} />
                     </button>
                 </div>
             </form>

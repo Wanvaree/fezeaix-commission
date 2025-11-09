@@ -23,22 +23,8 @@ const commissionsCollectionRef = collection(db, "commissions");
 
 // 🚨 ฟังก์ชัน Global สำหรับขออนุญาตแจ้งเตือน 🚨
 const requestNotificationPermission = () => {
-    if (!("Notification" in window)) {
-        console.warn("This browser does not support desktop notification");
-    } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                console.log("Notification permission granted.");
-            }
-        });
-    }
-};
-
-// 🚨 ฟังก์ชัน Global สำหรับแสดง Web Notification 🚨
-const showWebNotification = (title, body) => {
-    if (Notification.permission === "granted") {
-        new Notification(title, { body: body, icon: '/pwa-192x192-v2.png' }); 
-    }
+    // ไม่มี Web Notification API แล้ว แต่เก็บฟังก์ชันนี้ไว้เป็น User Gesture
+    console.log("Notification permission requested (Used as User Gesture for audio autoplay).");
 };
 
 export const AuthProvider = ({ children }) => {
@@ -82,19 +68,17 @@ export const AuthProvider = ({ children }) => {
         const unsubscribe = onSnapshot(commissionsCollectionRef, (snapshot) => {
             const requestsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             
-            // 🚨🚨 Logic การแจ้งเตือน (รวม Admin และ Client) 🚨🚨
+            // 🚨🚨 Logic การแจ้งเตือน (เฉพาะเสียงในเว็บ) 🚨🚨
             if (user && requestsRef.current.length > 0 && requestsData.length > 0) {
                 
                 let shouldPlayRequestSound = false; 
                 let shouldPlayMessageSound = false; 
-                let notificationTitle = '';
-                let notificationBody = '';
 
                 requestsData.forEach(newReq => {
                     const oldReq = requestsRef.current.find(r => r.id === newReq.id);
-                    const isNewRequest = !oldReq; // New Request on DB
+                    const isNewRequest = !oldReq; 
                     const hasNewMessage = oldReq && (newReq.messages?.length || 0) > (oldReq.messages?.length || 0);
-                    const isStatusChanged = oldReq && newReq.status !== oldReq.status; // 🚨 ตรวจสอบ Status Change
+                    const isStatusChanged = oldReq && newReq.status !== oldReq.status;
                     
                     const isClientUser = user.role !== 'admin';
                     const isRelevantClient = isClientUser && newReq.requesterUsername === user.username;
@@ -102,8 +86,6 @@ export const AuthProvider = ({ children }) => {
                     // --- 1. New Request Logic (Admin Only) ---
                     if (isNewRequest && user.role === 'admin') {
                         shouldPlayRequestSound = true;
-                        notificationTitle = 'New Commission Request!';
-                        notificationBody = `${newReq.requesterUsername} requested ${newReq.commissionType}.`;
                         return; 
                     }
                     
@@ -114,16 +96,12 @@ export const AuthProvider = ({ children }) => {
                         // 2a. Admin: มีข้อความใหม่จาก Client
                         if (user.role === 'admin' && newReq.requesterUsername !== lastMessage.sender) {
                              shouldPlayMessageSound = true;
-                             notificationTitle = `New Message from ${newReq.requesterUsername}`;
-                             notificationBody = `${newReq.commissionType}: ${lastMessage.text}`;
                              return;
                         }
                         
                         // 2b. Client: มีข้อความใหม่จาก Admin
                         if (isRelevantClient && lastMessage.sender === 'fezeaix') {
                             shouldPlayMessageSound = true;
-                            notificationTitle = 'Message from Artist (Fezeaix)';
-                            notificationBody = `${newReq.commissionType}: ${lastMessage.text}`;
                             return;
                         }
                     }
@@ -133,23 +111,19 @@ export const AuthProvider = ({ children }) => {
                     if (isStatusChanged && isRelevantClient) {
                          const lastViewedTimestamp = newReq.lastViewedByClient?.[user.username] || new Date(0).toISOString();
                          if (new Date(newReq.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
-                             shouldPlayMessageSound = true; // ใช้เสียงเดียวกับ New Message
-                             notificationTitle = 'Commission Status Updated!';
-                             notificationBody = `Your commission for ${newReq.commissionType} is now: ${newReq.status}`;
+                             shouldPlayMessageSound = true; 
                              return;
                          }
                     }
                 });
                 
-                // 🚨 เล่นเสียงและแสดง Web Notification
+                // 🚨 เล่นเสียง (หวังว่าจะมี User Gesture แล้ว)
                 if (shouldPlayRequestSound) {
                      const audio = new Audio('/notification_request.mp3'); 
                      audio.play().catch(e => console.log("New Request Audio playback blocked", e));
-                     showWebNotification(notificationTitle, notificationBody);
                 } else if (shouldPlayMessageSound) {
                     const audio = new Audio('/notification.mp3'); 
                      audio.play().catch(e => console.log("New Message Audio playback blocked", e));
-                     showWebNotification(notificationTitle, notificationBody);
                 }
             }
             
@@ -402,7 +376,6 @@ export const AuthProvider = ({ children }) => {
             const requestDocRef = doc(db, "commissions", requestId);
             const currentRequest = commissionRequests.find(req => req.id === requestId);
 
-            // 🚨🚨 FIX: ลบอักขระพิเศษ
             if (!currentRequest) return { success: false, message: "Request not found." }; 
 
             const updatedMessages = currentRequest.messages.filter(msg => msg.id !== messageId);

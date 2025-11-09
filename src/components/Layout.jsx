@@ -1,5 +1,5 @@
 // src/components/Layout.jsx
-import React, { useState, useRef, useEffect } from 'react'; 
+import React, { useState, useRef, useEffect } => 'react'; 
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp, FaTrashAlt } from 'react-icons/fa'; 
 import { useAuth } from '../context/AuthContext';
@@ -83,14 +83,13 @@ function Layout() {
     }, [adminLastViewedMessages]);
     
     
-    // 🚨🚨 FIX: ลบการประกาศซ้ำซ้อนของ handleLogout 🚨🚨
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
     
     // -----------------------------------------------------------
-    // 🚨 Client Notification Logic 
+    // 🚨 Client Notification Logic (Fixed to include Status Change)
     // -----------------------------------------------------------
     const clientMessageAlerts = commissionRequests.filter(req => {
         if (req.requesterUsername !== user?.username) return false; 
