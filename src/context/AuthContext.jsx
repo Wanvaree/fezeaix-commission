@@ -1,7 +1,7 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as bcrypt from 'bcryptjs'; 
-// 🚨🚨 FIX: Import writeBatch จาก firebaseConfig
+// 🚨🚨 FIX: Import writeBatch จาก firebase/firestore โดยตรง
 import { 
     db, 
     collection, 
@@ -10,9 +10,9 @@ import {
     setDoc, 
     updateDoc, 
     onSnapshot,
-    deleteDoc,
-    writeBatch 
+    deleteDoc
 } from '../firebaseConfig'; 
+import { writeBatch } from 'firebase/firestore'; // 🚨🚨 FIX: Import writeBatch จากไลบรารีหลัก
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -94,6 +94,10 @@ export const AuthProvider = ({ children }) => {
                     const oldReq = requestsRef.current.find(r => r.id === newReq.id);
                     const isNewRequest = !oldReq; // New Request on DB
                     const hasNewMessage = oldReq && (newReq.messages?.length || 0) > (oldReq.messages?.length || 0);
+                    const isStatusChanged = oldReq && newReq.status !== oldReq.status; // 🚨 ตรวจสอบ Status Change
+                    
+                    const isClientUser = user.role !== 'admin';
+                    const isRelevantClient = isClientUser && newReq.requesterUsername === user.username;
 
                     // --- 1. New Request Logic (Admin Only) ---
                     if (isNewRequest && user.role === 'admin') {
@@ -116,12 +120,24 @@ export const AuthProvider = ({ children }) => {
                         }
                         
                         // 2b. Client: มีข้อความใหม่จาก Admin
-                        if (user.role !== 'admin' && newReq.requesterUsername === user.username && lastMessage.sender === 'fezeaix') {
+                        if (isRelevantClient && lastMessage.sender === 'fezeaix') {
                             shouldPlayMessageSound = true;
                             notificationTitle = 'Message from Artist (Fezeaix)';
                             notificationBody = `${newReq.commissionType}: ${lastMessage.text}`;
                             return;
                         }
+                    }
+                    
+                    // --- 3. Status Change Logic (Client Only) ---
+                    // ถ้าสถานะเปลี่ยน และ Client ยังไม่ได้อ่านข้อความล่าสุด (หรือไม่มีข้อความเลย)
+                    if (isStatusChanged && isRelevantClient) {
+                         const lastViewedTimestamp = newReq.lastViewedByClient?.[user.username] || new Date(0).toISOString();
+                         if (new Date(newReq.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
+                             shouldPlayMessageSound = true; // ใช้เสียงเดียวกับ New Message
+                             notificationTitle = 'Commission Status Updated!';
+                             notificationBody = `Your commission for ${newReq.commissionType} is now: ${newReq.status}`;
+                             return;
+                         }
                     }
                 });
                 
@@ -318,10 +334,31 @@ export const AuthProvider = ({ children }) => {
     const updateCommissionStatus = async (requestId, newStatus) => {
          try {
             const requestDocRef = doc(db, "commissions", requestId);
-            await updateDoc(requestDocRef, {
+            const currentRequest = commissionRequests.find(req => req.id === requestId);
+
+            if (!currentRequest || currentRequest.status === newStatus) {
+                return { success: true, message: 'Status unchanged.' };
+            }
+
+            // 🚨🚨 FIX: บังคับให้ Client เห็นแจ้งเตือนสถานะเปลี่ยน 🚨🚨
+            const batch = writeBatch(db);
+            const reqRef = doc(db, "commissions", requestId);
+            
+            const clientUpdate = {
                 status: newStatus,
                 timestamp: new Date().toISOString(),
+            };
+            
+            const clientUsernames = Object.keys(currentRequest.lastViewedByClient || {});
+            
+            clientUsernames.forEach(clientUsername => {
+                 // Set lastViewedByClient ให้เป็นค่าที่เก่ามากๆ เพื่อ Trigger Notification ใน Layout
+                 clientUpdate[`lastViewedByClient.${clientUsername}`] = new Date(0).toISOString(); 
             });
+
+            batch.update(reqRef, clientUpdate);
+            await batch.commit();
+
             return { success: true, message: 'Commission status updated.' };
         } catch (error) {
             console.error("Update status error:", error);
@@ -365,7 +402,7 @@ export const AuthProvider = ({ children }) => {
             const requestDocRef = doc(db, "commissions", requestId);
             const currentRequest = commissionRequests.find(req => req.id === requestId);
 
-            if (!currentRequest) return { success: false, message: "Request not found." };
+            if (!currentRequest) return { success: false, message: "Request not found." }; // 🚨 FIX: ลบอักขระพิเศษ
 
             const updatedMessages = currentRequest.messages.filter(msg => msg.id !== messageId);
 
@@ -433,7 +470,7 @@ export const AuthProvider = ({ children }) => {
         deleteCommissionRequest,
         addMessageToCommissionRequest,
         deleteMessageFromCommissionRequest, 
-        updateCommissionStatus,
+        updateCommissionStatus, 
         changePassword, 
         setClientMessagesViewed, 
         requestNotificationPermission, 

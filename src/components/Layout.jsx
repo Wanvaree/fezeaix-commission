@@ -4,29 +4,16 @@ import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp, FaTrashAlt } from 'react-icons/fa'; 
 import { useAuth } from '../context/AuthContext';
 
-// 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Admin Dropdown)
-function NotificationDropdown({ newRequests, messageAlerts, handleClose, handleClearAll }) { 
+// 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Admin/Client Dropdown)
+function NotificationDropdown({ alerts, isClient, handleClose, handleClearAll }) { 
     
-    // รวมรายการแจ้งเตือนทั้งหมดสำหรับแสดงใน Dropdown
-    const allAlerts = [
-        ...newRequests.map(req => ({ 
-            ...req, 
-            type: 'REQUEST', 
-            title: `${req.requesterUsername} requested ${req.commissionType}`,
-            subtitle: `Status: New Request`
-        })),
-        ...messageAlerts.map(req => ({ 
-            ...req, 
-            type: 'MESSAGE', 
-            title: `New Message from ${req.requesterUsername}`,
-            subtitle: `${req.commissionType}: ${req.messages ? req.messages[req.messages.length - 1]?.text : 'No Message'}` 
-        }))
-    ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // เรียงตามเวลาใหม่สุด
-
+    // เรียงตามเวลาใหม่สุด
+    const sortedAlerts = alerts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); 
+    
     return (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in z-50 border border-gray-200">
             <div className="p-3 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-gray-800">All Notifications</h3> 
+                <h3 className="text-lg font-bold text-gray-800">{isClient ? 'New Message/Status Alerts' : 'All Notifications'}</h3> 
                 <button 
                     onClick={handleClearAll} // 🚨 ปุ่ม Clear All
                     className="flex items-center text-red-500 hover:text-red-700 text-xs font-semibold p-1 rounded transition-colors"
@@ -35,25 +22,26 @@ function NotificationDropdown({ newRequests, messageAlerts, handleClose, handleC
                 </button>
             </div>
             
-            {allAlerts.length === 0 ? ( 
+            {sortedAlerts.length === 0 ? ( 
                 <div className="p-4 text-center text-gray-500 text-sm">
                     No new notifications.
                 </div>
             ) : (
                 <div className="max-h-80 overflow-y-auto">
-                    {allAlerts.map((alert) => ( 
+                    {sortedAlerts.map((alert) => ( 
                         <Link
                             key={alert.id + alert.type} 
-                            to="/dashboard/inbox"
+                            to={isClient ? "/dashboard/messages" : "/dashboard/inbox"} // Client ไปหน้า Messages, Admin ไปหน้า Inbox
                             onClick={handleClose}
                             className="flex flex-col p-3 hover:bg-gray-50 border-b border-gray-100 transition-colors"
                         >
                             <p className="text-sm font-semibold text-gray-800 truncate">
-                                <span className={`mr-2 font-bold ${alert.type === 'REQUEST' ? 'text-red-600' : 'text-orange-600'}`}>
-                                    {alert.type === 'REQUEST' ? '🚨 REQUEST:' : '💬 MESSAGE:'}
+                                <span className={`mr-2 font-bold ${alert.type === 'REQUEST' ? 'text-red-600' : alert.type === 'STATUS' ? 'text-green-600' : 'text-orange-600'}`}>
+                                    {alert.type === 'REQUEST' ? '🚨 REQUEST:' : alert.type === 'STATUS' ? '✅ STATUS:' : '💬 MESSAGE:'}
                                 </span>
                                 {alert.title}
                             </p>
+                            <p className="text-xs text-gray-400 mt-1 truncate">{alert.subtitle}</p>
                             <span className="text-xs text-gray-400 mt-1 self-end">
                                 {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span >
@@ -66,7 +54,7 @@ function NotificationDropdown({ newRequests, messageAlerts, handleClose, handleC
 }
 
 function Layout() {
-    const { user, logout, commissionRequests, isAdmin, requestNotificationPermission } = useAuth(); 
+    const { user, logout, commissionRequests, isAdmin, requestNotificationPermission, clearClientNotifications } = useAuth(); 
     const navigate = useNavigate();
     const location = useLocation(); 
     
@@ -100,18 +88,41 @@ function Layout() {
     };
 
     // -----------------------------------------------------------
-    // 🚨 Client Notification Logic 
+    // 🚨 Client Notification Logic (Fixed to include Status Change)
     // -----------------------------------------------------------
-    const clientNewMessagesCount = commissionRequests.reduce((count, req) => {
-        if (req.requesterUsername !== user?.username) return count; 
+    const clientMessageAlerts = commissionRequests.filter(req => {
+        if (req.requesterUsername !== user?.username) return false; 
+        
         const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
-        if (!lastMessage || lastMessage.sender !== 'fezeaix') return count;
+        
         const lastViewedTimestamp = req.lastViewedByClient?.[user.username] || new Date(0).toISOString();
-        if (new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
-            return count + 1;
+        const isUnread = new Date(req.timestamp).getTime() > new Date(lastViewedTimestamp).getTime(); 
+        
+        if (isUnread) {
+            const isNewMessage = lastMessage?.sender === 'fezeaix';
+            
+            // ตรวจสอบว่าเป็นแจ้งเตือนที่ควรแสดงหรือไม่ (ถ้า timestamp เปลี่ยนและยังไม่ได้ดู)
+            if (isNewMessage || req.status !== commissionRequests.find(r => r.id === req.id)?.status) { 
+                 return true;
+            }
         }
-        return count;
-    }, 0);
+        
+        return false;
+    }).map(req => {
+        const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
+        const isNewMessage = lastMessage?.sender === 'fezeaix';
+        const isStatusChange = req.status !== commissionRequests.find(r => r.id === req.id)?.status;
+        
+        return ({
+            id: req.id,
+            type: isNewMessage ? 'MESSAGE' : 'STATUS', 
+            title: req.commissionType,
+            subtitle: isNewMessage ? lastMessage.text : `Status updated to: ${req.status}`,
+            timestamp: req.timestamp
+        });
+    });
+    
+    const clientNewMessagesCount = clientMessageAlerts.length;
 
 
     // -----------------------------------------------------------
@@ -124,7 +135,7 @@ function Layout() {
     );
     const adminNewRequestsCount = newRequestAlerts.length;
 
-    // 2. New Message Alert List (สำหรับ Dropdown และ Count)
+    // 2. New Message Alert List (จาก Client)
     const newMessageAlerts = commissionRequests.filter(req => {
         const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
         if (!lastMessage) return false;
@@ -137,7 +148,13 @@ function Layout() {
         const lastViewedTimestamp = adminLastViewedMessages[req.id] || new Date(0).toISOString();
         
         return new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime();
-    });
+    }).map(req => ({
+        id: req.id,
+        type: 'MESSAGE',
+        title: req.requesterUsername,
+        subtitle: req.messages[req.messages.length - 1].text,
+        timestamp: req.messages[req.messages.length - 1].timestamp
+    }));
     const adminNewMessageAlertCount = newMessageAlerts.length;
 
 
@@ -164,7 +181,6 @@ function Layout() {
             const now = new Date().toISOString();
             const updatedViewedMessages = {}; 
             
-            // มาร์ค Request ทั้งหมดว่าอ่านแล้ว (เพื่อเคลียร์ Message Alert)
             commissionRequests.forEach(req => {
                  updatedViewedMessages[req.id] = now;
             });
@@ -175,13 +191,17 @@ function Layout() {
         }
     };
     
-    // 🚨 ฟังก์ชัน: สลับสถานะ Dropdown (Admin) / ไปหน้า Messages (Client)
+    // 🚨 ฟังก์ชัน: เคลียร์แจ้งเตือนทั้งหมดของ Client
+    const handleClearAllClientNotifications = () => {
+         if (window.confirm("Are you sure you want to clear all message alerts?")) {
+             clearClientNotifications(); // เรียกใช้ AuthContext Function
+             setIsDropdownOpen(false);
+         }
+    };
+    
+    // 🚨 ฟังก์ชัน: สลับสถานะ Dropdown (Admin/Client)
     const handleNotificationClick = () => {
-        if (isAdmin) {
-            setIsDropdownOpen(prev => !prev);
-        } else {
-             navigate('/dashboard/messages');
-        }
+        setIsDropdownOpen(prev => !prev);
     };
     
     // 🚨 ฟังก์ชัน: ปิด Dropdown (ใช้เมื่อคลิกนอก Dropdown - ไม่เคลียร์ทั้งหมด)
@@ -193,7 +213,6 @@ function Layout() {
     // 🚨 useEffect: Trigger Admin Message Alert Clear เมื่อเข้าหน้า Inbox
     useEffect(() => {
         if (isAdmin && location.pathname.startsWith('/dashboard/inbox')) {
-             // เมื่อ Admin เข้าหน้า Inbox, ให้ถือว่า Message Alert ทั้งหมดถูก 'ดู' แล้ว
             const now = new Date().toISOString();
             const newViewedMessages = { ...adminLastViewedMessages };
             
@@ -203,10 +222,8 @@ function Layout() {
                 newViewedMessages[id] = now;
             });
 
-            // เคลียร์ New Request ID จาก viewedRequests ทันทีเมื่อเข้า Inbox
             setViewedRequests(prevViewed => [...new Set([...prevViewed, ...newRequestAlerts.map(r => r.id)])]);
 
-            
             const didMessageAlertsChange = newMessageAlerts.length > 0; 
             const didRequestAlertsChange = newRequestAlerts.length > 0;
             
@@ -222,9 +239,7 @@ function Layout() {
                 closeDropdown();
             }
         }
-        if (isAdmin) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
+        document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [dropdownRef, isAdmin, location.pathname, commissionRequests]); 
 
@@ -362,12 +377,12 @@ function Layout() {
                                 )}
                             </button>
                             
-                            {/* Dropdown แสดงเฉพาะ Admin */}
-                            {isAdmin && isDropdownOpen && (
+                            {/* Dropdown แสดงเฉพาะ Admin/Client */}
+                            {isDropdownOpen && (
                                 <NotificationDropdown 
-                                    newRequests={newRequestAlerts} 
-                                    messageAlerts={newMessageAlerts} 
-                                    handleClearAll={handleClearAllAdminNotifications} 
+                                    alerts={isAdmin ? [...newRequestAlerts, ...newMessageAlerts] : clientMessageAlerts}
+                                    isClient={!isAdmin}
+                                    handleClearAll={isAdmin ? handleClearAllAdminNotifications : handleClearAllClientNotifications} 
                                     handleClose={closeDropdown} 
                                 />
                             )}

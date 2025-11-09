@@ -1,7 +1,7 @@
 // src/pages/dashboard/MessagesPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { FaPaperPlane, FaPaintBrush } from 'react-icons/fa';
+import { FaPaperPlane, FaPaintBrush, FaTrashAlt } from 'react-icons/fa'; // 🚨 Import FaTrashAlt
 
 // Component ย่อยสำหรับหน้าต่างแชท (Client Side)
 function ClientCommissionChat({ request, currentUser, addMessage }) {
@@ -94,7 +94,8 @@ function ClientCommissionChat({ request, currentUser, addMessage }) {
 }
 
 function MessagesPage() {
-    const { commissionRequests, user, addMessageToCommissionRequest, setClientMessagesViewed } = useAuth();
+    // 🚨 เพิ่ม clearClientNotifications
+    const { commissionRequests, user, addMessageToCommissionRequest, setClientMessagesViewed, clearClientNotifications } = useAuth();
     // กรองเฉพาะ Commission Request ของผู้ใช้งานปัจจุบัน
     const userRequests = commissionRequests.filter(req => req.requesterUsername === user?.username);
     const [selectedRequest, setSelectedRequest] = useState(userRequests.length > 0 ? userRequests[0] : null);
@@ -110,30 +111,65 @@ function MessagesPage() {
             const updatedRequest = commissionRequests.find(req => req.id === selectedRequest.id);
             setSelectedRequest(updatedRequest || null);
         } else if (sortedUserRequests.length > 0) {
-            // เลือกอันล่าสุดเมื่อไม่มีการเลือก
             setSelectedRequest(sortedUserRequests[0]);
         }
     }, [commissionRequests, user?.username, selectedRequest]); 
     
-    // 🚨 Logic การเคลียร์แจ้งเตือนของ Client
+    // 🚨🚨 FIX: Logic การเคลียร์แจ้งเตือนของ Client เมื่อเลือก Request (Fix 1: Stop Pulse)
     useEffect(() => {
         if (selectedRequest && selectedRequest.messages && selectedRequest.messages.length > 0) {
             const lastMessage = selectedRequest.messages[selectedRequest.messages.length - 1];
-            // เคลียร์เฉพาะเมื่อข้อความล่าสุดมาจาก Admin
-            if (lastMessage.sender === 'fezeaix') {
-                // ส่ง Timestamp ของข้อความล่าสุดไปบันทึกว่า "Client ดูถึงเวลานี้แล้ว"
+            const lastViewedTimestamp = selectedRequest.lastViewedByClient?.[user.username] || new Date(0).toISOString();
+            
+            // ถ้าข้อความใหม่ล่าสุดมาจาก Admin และยังไม่ได้อ่าน
+            if (lastMessage.sender === 'fezeaix' && new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
+                // 🚨 เรียก function เคลียร์ใน AuthContext
                 setClientMessagesViewed(selectedRequest.id, lastMessage.timestamp);
+                
+                // 🚨🚨 FIX: อัปเดต selectedRequest ทันที (Optimistic Update)
+                setSelectedRequest(prev => {
+                    if (!prev) return prev;
+                    return ({
+                        ...prev,
+                        lastViewedByClient: {
+                            ...(prev.lastViewedByClient || {}),
+                            [user.username]: lastMessage.timestamp
+                        }
+                    });
+                });
             }
         }
-    }, [selectedRequest, setClientMessagesViewed]);
+    }, [selectedRequest, setClientMessagesViewed, user.username]);
 
 
-    // 🚨 แก้ไข: เปลี่ยน handleAddMessage ให้เป็น async/await
     const handleAddMessage = async (requestId, senderUsername, messageText) => {
         await addMessageToCommissionRequest(requestId, senderUsername, messageText);
     };
 
+    // 🚨 ฟังก์ชันสำหรับ Clear All Client Notifications
+    const handleClearAll = () => {
+        if (window.confirm("Are you sure you want to clear all commission message notifications?")) {
+            clearClientNotifications(); // เรียกใช้จาก AuthContext
+        }
+    };
+
+    // 🚨 Logic สำหรับแสดงวงกลมแดงในรายการ Request Panel
+    const hasUnreadMessage = (request) => {
+        if (!request.messages || request.messages.length === 0) return false;
+        
+        const lastMessage = request.messages[request.messages.length - 1];
+        // ตรวจสอบจาก req.timestamp ซึ่งจะเปลี่ยนเมื่อมีข้อความใหม่หรือสถานะเปลี่ยน
+        const lastActivityTimestamp = request.timestamp; 
+        
+        const lastViewedTimestamp = request.lastViewedByClient?.[user.username] || new Date(0).toISOString();
+        
+        // แจ้งเตือนเมื่อมีการอัปเดตใดๆ (ข้อความ/สถานะ) ที่ใหม่กว่าเวลาที่เคยดู
+        return new Date(lastActivityTimestamp).getTime() > new Date(lastViewedTimestamp).getTime();
+    };
+
+
     const sortedUserRequests = userRequests.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const totalUnreadCount = sortedUserRequests.filter(hasUnreadMessage).length; // ใช้สำหรับแสดงผล
 
     if (userRequests.length === 0) {
         return (
@@ -143,22 +179,20 @@ function MessagesPage() {
             </div>
         );
     }
-    
-    // 🚨 Logic สำหรับแสดงวงกลมแดงในรายการ Request Panel
-    const hasUnreadMessage = (request) => {
-        if (!request.messages || request.messages.length === 0) return false;
-        
-        const lastMessage = request.messages[request.messages.length - 1];
-        if (lastMessage.sender !== 'fezeaix') return false; // ไม่ใช่ข้อความจาก Admin
-        
-        const lastViewedTimestamp = request.lastViewedByClient?.[user.username] || new Date(0).toISOString();
-        
-        return new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime();
-    };
 
     return (
         <div className="p-6 h-full bg-white rounded-xl shadow-lg flex flex-col">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">My Commission Messages</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex justify-between items-center">
+                My Commission Messages
+                {totalUnreadCount > 0 && (
+                    <button 
+                        onClick={handleClearAll} 
+                        className="flex items-center text-red-500 hover:text-red-700 text-sm font-semibold p-2 rounded transition-colors"
+                    >
+                        <FaTrashAlt className="mr-1" size={14} /> Clear All {totalUnreadCount} Alerts
+                    </button>
+                )}
+            </h2>
 
             <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
                 {/* Panel ซ้าย: รายการ Commission Request */}
@@ -166,7 +200,7 @@ function MessagesPage() {
                     <div className="space-y-3">
                         {sortedUserRequests.map((request) => {
                             const isSelected = selectedRequest && selectedRequest.id === request.id;
-                            const unread = hasUnreadMessage(request); // ตรวจสอบสถานะยังไม่อ่าน
+                            const unread = hasUnreadMessage(request); 
                             const lastMessage = 
                                 request.messages && request.messages.length > 0
                                     ? request.messages[request.messages.length - 1] 
@@ -178,7 +212,7 @@ function MessagesPage() {
                                     onClick={() => setSelectedRequest(request)}
                                     className={`p-4 rounded-lg shadow-sm border transition-all duration-200 cursor-pointer ${
                                         isSelected ? 'bg-purple-100 border-purple-400 ring-2 ring-purple-500' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                                    } flex flex-col relative`} // 🚨 เพิ่ม relative
+                                    } flex flex-col relative`} 
                                 >
                                     <p className="font-semibold text-gray-800 text-lg">
                                         Request: <span className="text-purple-600">{request.commissionType}</span>
@@ -193,7 +227,7 @@ function MessagesPage() {
                                     )}
                                     {/* 🚨 วงกลมแดง Pulse Dot สำหรับ Unread Message ในรายการ */}
                                     {unread && (
-                                        <span className="absolute top-2 right-2 relative flex h-3 w-3" title="New Message">
+                                        <span className="absolute top-2 right-2 relative flex h-3 w-3" title="New Message/Status Update">
                                             <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                                             <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                                         </span>

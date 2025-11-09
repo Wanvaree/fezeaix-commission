@@ -1,7 +1,7 @@
 // src/firebaseConfig.js
 import { initializeApp } from "firebase/app";
-// 🚨🚨 FIX: เพิ่ม writeBatch ใน Imports
-import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch } from "firebase/firestore";
+// 🚨🚨 FIX: ลบ writeBatch ออกจาก Imports
+import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, where, onSnapshot } from "firebase/firestore";
 
 // 🚨🚨🚨 แทนที่ค่าเหล่านี้ด้วย Firebase Config ของคุณ 🚨🚨🚨
 const firebaseConfig = {
@@ -28,6 +28,6 @@ export {
   deleteDoc, 
   query, 
   where, 
-  onSnapshot,
-  writeBatch // 🚨🚨 FIX: Export writeBatch
+  onSnapshot
+  // 🚨🚨 FIX: ลบ writeBatch ออกจาก Export
 };
