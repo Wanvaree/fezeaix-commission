@@ -54,7 +54,7 @@ function NotificationDropdown({ alerts, isClient, handleClose, handleClearAll })
 }
 
 function Layout() {
-    const { user, logout, commissionRequests, isAdmin, requestNotificationPermission, clearClientNotifications } = useAuth(); 
+    const { user, logout, commissionRequests, isAdmin, clearClientNotifications } = useAuth(); 
     const navigate = useNavigate();
     const location = useLocation(); 
     
@@ -83,13 +83,14 @@ function Layout() {
     }, [adminLastViewedMessages]);
     
     
+    // 🚨🚨 FIX: ลบการประกาศซ้ำซ้อนของ handleLogout 🚨🚨
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
     
     // -----------------------------------------------------------
-    // 🚨 Client Notification Logic (Fixed to include Status Change)
+    // 🚨 Client Notification Logic 
     // -----------------------------------------------------------
     const clientMessageAlerts = commissionRequests.filter(req => {
         if (req.requesterUsername !== user?.username) return false; 
@@ -164,11 +165,6 @@ function Layout() {
     // เลือกตัวนับที่เหมาะสมสำหรับ Header Bell
     const notificationCount = isAdmin ? totalAdminNotificationCount : clientNewMessagesCount;
 
-    
-    const handleLogout = () => {
-        logout();
-        navigate('/login');
-    };
     
     // 🚨 ฟังก์ชัน: เคลียร์แจ้งเตือนทั้งหมด (เรียกจากปุ่มใน Dropdown)
     const handleClearAllAdminNotifications = () => {
@@ -334,7 +330,6 @@ function Layout() {
                     </ul>
                 </nav>
                 <div className="p-5 border-t border-blue-800">
-                    {/* 🚨🚨 FIX: ลบปุ่ม Enable Notifications ออก (ไม่ใช้ Web Noti แล้ว) */}
                     
                     <button onClick={handleLogout} className="flex items-center p-3 text-blue-200 hover:bg-blue-700 hover:text-white rounded-lg transition-colors duration-200 w-full">
                         <FaSignOutAlt className="mr-3 text-blue-300" /> Logout

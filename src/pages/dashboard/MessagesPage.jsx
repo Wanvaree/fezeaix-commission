@@ -118,8 +118,6 @@ function MessagesPage() {
     // 🚨🚨 FIX: Logic การเคลียร์แจ้งเตือนของ Client เมื่อเลือก Request (Fix 1: Stop Pulse)
     useEffect(() => {
         if (selectedRequest && selectedRequest.messages && selectedRequest.messages.length > 0) {
-            const lastMessage = selectedRequest.messages[selectedRequest.messages.length - 1];
-            // ใช้ selectedRequest.timestamp เพราะมันเปลี่ยนเมื่อมี status update
             const lastActivityTimestamp = selectedRequest.timestamp; 
             const lastViewedTimestamp = selectedRequest.lastViewedByClient?.[user.username] || new Date(0).toISOString();
             
