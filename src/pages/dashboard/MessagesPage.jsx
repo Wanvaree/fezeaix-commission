@@ -191,9 +191,11 @@ function MessagesPage() {
                                             <span className="font-medium">{lastMessage.sender === user.username ? 'You' : lastMessage.sender}:</span> {lastMessage.text}
                                         </p>
                                     )}
-                                    {/* 🚨 วงกลมแดงสำหรับ Unread Message ในรายการ */}
+                                    {/* 🚨 วงกลมแดง Pulse Dot สำหรับ Unread Message ในรายการ */}
                                     {unread && (
-                                        <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold w-3 h-3 flex items-center justify-center rounded-full" title="New Message">
+                                        <span className="absolute top-2 right-2 relative flex h-3 w-3" title="New Message">
+                                            <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                                         </span>
                                     )}
                                 </div>

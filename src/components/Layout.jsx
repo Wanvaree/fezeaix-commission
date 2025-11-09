@@ -1,7 +1,7 @@
 // src/components/Layout.jsx
 import React, { useState, useRef, useEffect } from 'react'; 
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp } from 'react-icons/fa'; 
+import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp } from 'react-icons/fa'; // 🚨 Import FaVolumeUp
 import { useAuth } from '../context/AuthContext';
 
 // 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Notification Dropdown)
@@ -66,6 +66,7 @@ function Layout() {
         const stored = localStorage.getItem('viewedRequests');
         return stored ? JSON.parse(stored) : [];
     });
+    // 🚨 ดึงสถานะ Notification Permission ล่าสุด
     const [notificationStatus, setNotificationStatus] = useState(Notification.permission);
 
     // 🚨 useEffect สำหรับ Sync viewedRequests ไปยัง Local Storage
@@ -76,7 +77,8 @@ function Layout() {
     // 🚨 Function เพื่อ Handle การโต้ตอบครั้งแรกและขออนุญาต
     const handleEnableNotifications = () => {
         requestNotificationPermission();
-        setNotificationStatus(Notification.permission);
+        // อัพเดทสถานะทันที (แม้ว่ามันจะ Async, แต่เราให้ User เห็น Feedback ทันที)
+        setNotificationStatus(Notification.permission); 
     };
 
     // -----------------------------------------------------------
@@ -94,7 +96,6 @@ function Layout() {
         const isNewFromAdmin = lastMessage.sender === 'fezeaix';
         const lastViewedTimestamp = req.lastViewedByClient?.[user.username] || new Date(0).toISOString();
         
-        // ถ้าข้อความล่าสุดมาจาก Admin และ Timestamp ใหม่กว่าที่เคยดู
         if (isNewFromAdmin && new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
             return count + 1;
         }
@@ -203,12 +204,19 @@ function Layout() {
                         {/* Messages Link สำหรับ Client ทุกคน (User ทั่วไป) */}
                         {!isAdmin && ( 
                             <li className="mb-2">
-                                {/* 🚨🚨 FIX: แสดง Client Message Count ใน Sidebar 🚨🚨 */}
-                                <Link to="/dashboard/messages" className={getLinkClasses('messages')}>
-                                    <FaComments className="mr-3 text-blue-300" /> Messages
+                                {/* 🚨🚨 FIX: แสดง Client Message Count ใน Sidebar ด้วย Pulse Dot 🚨🚨 */}
+                                <Link 
+                                    to="/dashboard/messages" 
+                                    className={getLinkClasses('messages')}
+                                >
+                                    <FaComments className={`mr-3 ${clientNewMessagesCount > 0 ? 'text-yellow-400' : 'text-blue-300'}`} />
+                                    Messages
                                     {clientNewMessagesCount > 0 && ( 
-                                        <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                                            {clientNewMessagesCount}
+                                        <span className="ml-auto relative flex h-3 w-3">
+                                            {/* Pulse Ring */}
+                                            <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                            {/* Solid Dot */}
+                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                                         </span>
                                     )}
                                 </Link>
@@ -228,10 +236,14 @@ function Layout() {
                         {isAdmin && (
                             <li className="mb-2">
                                 <Link to="/dashboard/inbox" className={getLinkClasses('inbox')}>
-                                    <FaInbox className="mr-3 text-blue-300" /> Inbox
+                                    <FaInbox className={`mr-3 ${adminNewRequestsCount > 0 ? 'text-yellow-400' : 'text-blue-300'}`} /> 
+                                    Inbox
                                     {adminNewRequestsCount > 0 && (
-                                        <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                                            {adminNewRequestsCount}
+                                        <span className="ml-auto relative flex h-3 w-3">
+                                            {/* Pulse Ring */}
+                                            <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                            {/* Solid Dot */}
+                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                                         </span>
                                     )}
                                 </Link>
@@ -274,15 +286,16 @@ function Layout() {
                 <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm z-10">
                     <h1 className="text-xl font-semibold text-gray-800">Welcome, {user ? user.username : 'Guest'}!</h1>
                     <div className="flex items-center space-x-4">
-                        {/* 🚨 Notification Dropdown Area (สำหรับ Admin) / Bell Icon (สำหรับ Client) */}
+                        {/* 🚨 Notification Dropdown Area (Bell Icon) */}
                         <div className="relative" ref={dropdownRef}>
                             <button 
                                 onClick={handleNotificationClick} 
-                                // ใช้ notificationCount รวมสำหรับทั้ง Admin/Client
-                                className={`relative p-2 rounded-full transition-colors ${notificationCount > 0 ? 'text-red-500 hover:text-red-600 bg-red-50' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'}`}
+                                // 🚨 เพิ่ม pulse animation class
+                                className={`relative p-2 rounded-full transition-colors ${notificationCount > 0 ? 'text-red-500 hover:text-red-600 bg-red-50 animate-pulse' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'}`}
                                 title={notificationCount > 0 ? `${notificationCount} New Notification(s)` : 'No new notifications'}
                             >
                                 <FaBell className="text-xl" />
+                                {/* 🚨 ตัวเลขวงกลมแดง */}
                                 {notificationCount > 0 && ( 
                                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full">
                                         {notificationCount}
