@@ -1,10 +1,10 @@
 // src/components/Layout.jsx
 import React, { useState, useRef, useEffect } from 'react'; 
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp } from 'react-icons/fa'; // 🚨 Import FaVolumeUp
+import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp } from 'react-icons/fa'; 
 import { useAuth } from '../context/AuthContext';
 
-// 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Notification Dropdown)
+// ... (NotificationDropdown component เหมือนเดิม)
 function NotificationDropdown({ requests, handleClose }) {
     
     return (
@@ -77,12 +77,11 @@ function Layout() {
     // 🚨 Function เพื่อ Handle การโต้ตอบครั้งแรกและขออนุญาต
     const handleEnableNotifications = () => {
         requestNotificationPermission();
-        // อัพเดทสถานะทันที (แม้ว่ามันจะ Async, แต่เราให้ User เห็น Feedback ทันที)
         setNotificationStatus(Notification.permission); 
     };
 
     // -----------------------------------------------------------
-    // 🚨 Client Notification Logic (FIXED)
+    // 🚨 Client Notification Logic 
     // -----------------------------------------------------------
     const clientNewMessagesCount = commissionRequests.reduce((count, req) => {
         if (req.requesterUsername !== user?.username) return count; 
@@ -106,13 +105,40 @@ function Layout() {
 
     // -----------------------------------------------------------
     // 🚨 Admin Notification Logic (ใช้ Local state)
-    // -----------------------------------------------------------
+    // 1. New Request Count (ใช้ viewedRequests)
     const adminNewRequestsCount = commissionRequests.filter(
         req => req.status === 'New Request' && !viewedRequests.includes(req.id)
     ).length;
     
+    // 🚨 2. New Message Count (นับ Request ที่มีข้อความใหม่จาก Client)
+    const adminNewMessageAlertCount = commissionRequests.reduce((count, req) => {
+        const lastMessage = req.messages && req.messages.length > 0 
+            ? req.messages[req.messages.length - 1] 
+            : null;
+            
+        if (!lastMessage) return count;
+        
+        // ถ้าข้อความล่าสุดมาจาก Client (และไม่ใช่ New Request ที่นับไปแล้ว)
+        const isFromClient = lastMessage.sender !== 'fezeaix' && lastMessage.sender !== 'System';
+        const isNotNewRequest = req.status !== 'New Request';
+
+        // Admin ไม่มี Logic การเก็บ lastViewed ใน DB (เหมือน Client)
+        // ดังนั้นเราใช้เงื่อนไขง่ายๆ คือถ้าข้อความล่าสุดมาจาก Client -> ถือว่ามี Alert
+        if (isFromClient && isNotNewRequest) {
+            // ************ NOTE: ตรงนี้อาจต้องเพิ่ม Logic การ Clear Notification
+            // แต่เนื่องจาก Admin Inbox จะแสดงข้อความล่าสุดอยู่แล้ว 
+            // การนับแค่ New Request + Alert เมื่อมีข้อความใหม่ล่าสุดจาก Client น่าจะเพียงพอ
+            return count + 1;
+        }
+        
+        return count;
+    }, 0);
+
+    // 🚨 รวม Admin Notification Count
+    const totalAdminNotificationCount = adminNewRequestsCount + adminNewMessageAlertCount;
+    
     // เลือกตัวนับที่เหมาะสมสำหรับ Header Bell
-    const notificationCount = isAdmin ? adminNewRequestsCount : clientNewMessagesCount;
+    const notificationCount = isAdmin ? totalAdminNotificationCount : clientNewMessagesCount;
 
     
     const handleLogout = () => {
@@ -236,9 +262,9 @@ function Layout() {
                         {isAdmin && (
                             <li className="mb-2">
                                 <Link to="/dashboard/inbox" className={getLinkClasses('inbox')}>
-                                    <FaInbox className={`mr-3 ${adminNewRequestsCount > 0 ? 'text-yellow-400' : 'text-blue-300'}`} /> 
+                                    <FaInbox className={`mr-3 ${totalAdminNotificationCount > 0 ? 'text-yellow-400' : 'text-blue-300'}`} /> 
                                     Inbox
-                                    {adminNewRequestsCount > 0 && (
+                                    {totalAdminNotificationCount > 0 && (
                                         <span className="ml-auto relative flex h-3 w-3">
                                             {/* Pulse Ring */}
                                             <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
