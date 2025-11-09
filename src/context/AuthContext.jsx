@@ -1,3 +1,4 @@
+// src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import * as bcrypt from 'bcryptjs'; 
 // 🚨🚨 FIX: Import writeBatch จาก firebase/firestore โดยตรง

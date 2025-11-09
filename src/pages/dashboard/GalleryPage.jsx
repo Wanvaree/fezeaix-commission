@@ -83,7 +83,10 @@ function GalleryPage() {
         // 🚨 แก้ไข: เปลี่ยน h-full เป็น min-h-full เพื่อให้ขยายตามเนื้อหาเสมอ
         <div className="bg-white rounded-xl shadow-lg min-h-full p-6"> 
             <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">My Art Gallery</h2>
-            <p className="text-gray-600 mb-6">This is where all your amazing artworks will be displayed!</p>
+            {/* 🚨 FIX: อัปเดตข้อความ */}
+            <p className="text-gray-600 mb-6">
+                This is where all your amazing artworks will be displayed! รวมตัวอย่างCommission จะมีการอัพเดทอยู่เรื่อยๆค่ะ💕
+            </p>
 
             {/* 🚨 แก้ไข: ใช้ Responsive Grid และ Hover Effect */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-4"> 
@@ -97,8 +100,9 @@ function GalleryPage() {
                         <img
                             src={artwork.src}
                             alt={artwork.title}
-                            // 🚨 เพิ่ม: object-cover เพื่อให้รูปเต็มพื้นที่, Transform/Transition สำหรับ Hover Zoom
+                            // 🚨 FIX: เพิ่ม loading="lazy" เพื่อแก้ปัญหา Initial Load/Lag
                             className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-110" 
+                            loading="lazy"
                         />
                         
                         {/* 🚨 เพิ่ม: Overlay สำหรับแสดงชื่อเมื่อ Hover */}
