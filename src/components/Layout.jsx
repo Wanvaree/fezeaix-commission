@@ -4,37 +4,53 @@ import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp } from 'react-icons/fa'; 
 import { useAuth } from '../context/AuthContext';
 
-// ... (NotificationDropdown component เหมือนเดิม)
-function NotificationDropdown({ requests, handleClose }) {
+// 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Notification Dropdown)
+// 🚨🚨 NOTE: เปลี่ยนชื่อ prop และ Logic เพื่อแสดงทั้ง New Request และ New Message Alert
+function NotificationDropdown({ requests, messageAlerts, handleClose }) { // 🚨 เพิ่ม messageAlerts
     
+    // รวมรายการแจ้งเตือนทั้งหมดสำหรับแสดงใน Dropdown
+    const allAlerts = [
+        ...requests.map(req => ({ 
+            ...req, 
+            type: 'REQUEST', 
+            title: `${req.requesterUsername} requested ${req.commissionType}`,
+            subtitle: `Status: New Request`
+        })),
+        ...messageAlerts.map(req => ({ 
+            ...req, 
+            type: 'MESSAGE', 
+            title: `New Message from ${req.requesterUsername}`,
+            subtitle: `${req.commissionType}: ${req.messages[req.messages.length - 1].text}`
+        }))
+    ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // เรียงตามเวลาใหม่สุด
+
     return (
         <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl overflow-hidden animate-fade-in z-50 border border-gray-200">
             <div className="p-3 border-b border-gray-100 flex items-center justify-between">
                 <h3 className="text-lg font-bold text-gray-800">Notifications</h3>
-                <span className="text-sm font-semibold text-red-600">{requests.length} New</span>
+                <span className="text-sm font-semibold text-red-600">{allAlerts.length} New</span>
             </div>
             
-            {requests.length === 0 ? (
+            {allAlerts.length === 0 ? ( // 🚨 ใช้ allAlerts
                 <div className="p-4 text-center text-gray-500 text-sm">
-                    No new commission requests.
+                    No new notifications.
                 </div>
             ) : (
                 <div className="max-h-80 overflow-y-auto">
-                    {requests.map((request) => (
+                    {allAlerts.map((alert) => ( // 🚨 ใช้ allAlerts
                         <Link
-                            key={request.id}
+                            key={alert.id}
                             to="/dashboard/inbox"
                             onClick={handleClose}
                             className="flex flex-col p-3 hover:bg-gray-50 border-b border-gray-100 transition-colors"
                         >
                             <p className="text-sm font-semibold text-blue-600 truncate">
-                                {request.requesterUsername} requested {request.commissionType}
+                                🚨 {alert.type === 'REQUEST' ? 'New Request' : 'New Message'}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Status: <span className="font-medium text-red-600">{request.status}</span>
-                            </p>
+                            <p className="text-xs text-gray-500 mt-1 font-medium">{alert.title}</p>
+                            <p className="text-xs text-gray-400 mt-1 truncate">{alert.subtitle}</p>
                             <span className="text-xs text-gray-400 mt-1 self-end">
-                                {new Date(request.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span >
                         </Link>
                     ))}
@@ -53,7 +69,6 @@ function NotificationDropdown({ requests, handleClose }) {
 }
 
 function Layout() {
-    // 🚨 เพิ่ม requestNotificationPermission
     const { user, logout, commissionRequests, isAdmin, requestNotificationPermission } = useAuth(); 
     const navigate = useNavigate();
     const location = useLocation(); 
@@ -62,79 +77,83 @@ function Layout() {
     const dropdownRef = useRef(null); 
     
     // 🚨 State สำหรับติดตามสถานะ Notification Permission และ Admin Viewed Requests
+    // ** viewedRequests (สำหรับ New Request ID) ยังคงใช้เพื่อแยกรายการ New Request ที่ถูก Admin คลิกดูแล้ว**
     const [viewedRequests, setViewedRequests] = useState(() => {
         const stored = localStorage.getItem('viewedRequests');
         return stored ? JSON.parse(stored) : [];
     });
-    // 🚨 ดึงสถานะ Notification Permission ล่าสุด
+    // ** adminLastViewedMessages (สำหรับ Message Alert) **
+    const [adminLastViewedMessages, setAdminLastViewedMessages] = useState(() => {
+        const stored = localStorage.getItem('adminLastViewedMessages');
+        return stored ? JSON.parse(stored) : {}; // { requestId: timestamp }
+    });
+    
     const [notificationStatus, setNotificationStatus] = useState(Notification.permission);
 
-    // 🚨 useEffect สำหรับ Sync viewedRequests ไปยัง Local Storage
+    // 🚨 useEffect สำหรับ Sync viewedRequests & adminLastViewedMessages ไปยัง Local Storage
     useEffect(() => {
         localStorage.setItem('viewedRequests', JSON.stringify(viewedRequests));
     }, [viewedRequests]);
     
-    // 🚨 Function เพื่อ Handle การโต้ตอบครั้งแรกและขออนุญาต
+    useEffect(() => {
+        localStorage.setItem('adminLastViewedMessages', JSON.stringify(adminLastViewedMessages));
+    }, [adminLastViewedMessages]);
+    
+    // ... (handleEnableNotifications function เหมือนเดิม)
     const handleEnableNotifications = () => {
         requestNotificationPermission();
         setNotificationStatus(Notification.permission); 
     };
 
     // -----------------------------------------------------------
-    // 🚨 Client Notification Logic 
+    // 🚨 Client Notification Logic (OK)
     // -----------------------------------------------------------
     const clientNewMessagesCount = commissionRequests.reduce((count, req) => {
         if (req.requesterUsername !== user?.username) return count; 
-        
         const lastMessage = req.messages && req.messages.length > 0 
             ? req.messages[req.messages.length - 1] 
             : null;
-        
-        if (!lastMessage) return count;
-
-        const isNewFromAdmin = lastMessage.sender === 'fezeaix';
+        if (!lastMessage || lastMessage.sender !== 'fezeaix') return count;
         const lastViewedTimestamp = req.lastViewedByClient?.[user.username] || new Date(0).toISOString();
-        
-        if (isNewFromAdmin && new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
+        if (new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime()) {
             return count + 1;
         }
-        
         return count;
     }, 0);
 
 
     // -----------------------------------------------------------
-    // 🚨 Admin Notification Logic (ใช้ Local state)
-    // 1. New Request Count (ใช้ viewedRequests)
-    const adminNewRequestsCount = commissionRequests.filter(
-        req => req.status === 'New Request' && !viewedRequests.includes(req.id)
-    ).length;
+    // 🚨 Admin Notification Logic (New/Fixed)
+    // -----------------------------------------------------------
     
-    // 🚨 2. New Message Count (นับ Request ที่มีข้อความใหม่จาก Client)
-    const adminNewMessageAlertCount = commissionRequests.reduce((count, req) => {
-        const lastMessage = req.messages && req.messages.length > 0 
-            ? req.messages[req.messages.length - 1] 
-            : null;
-            
-        if (!lastMessage) return count;
+    // 1. New Request List (สำหรับ Dropdown และ Count)
+    const newRequestAlerts = commissionRequests.filter(
+        req => req.status === 'New Request' && !viewedRequests.includes(req.id)
+    );
+    const adminNewRequestsCount = newRequestAlerts.length;
+
+    // 2. New Message Alert List (สำหรับ Dropdown และ Count)
+    const newMessageAlerts = commissionRequests.filter(req => {
+        const lastMessage = req.messages && req.messages.length > 0 ? req.messages[req.messages.length - 1] : null;
+        if (!lastMessage) return false;
         
-        // ถ้าข้อความล่าสุดมาจาก Client (และไม่ใช่ New Request ที่นับไปแล้ว)
+        // ถ้าเป็น New Request จะถูกนับใน newRequestAlerts แล้ว
+        if (req.status === 'New Request') return false; 
+
+        // ข้อความล่าสุดต้องมาจาก Client (ไม่ใช่ Admin/System)
         const isFromClient = lastMessage.sender !== 'fezeaix' && lastMessage.sender !== 'System';
-        const isNotNewRequest = req.status !== 'New Request';
-
-        // Admin ไม่มี Logic การเก็บ lastViewed ใน DB (เหมือน Client)
-        // ดังนั้นเราใช้เงื่อนไขง่ายๆ คือถ้าข้อความล่าสุดมาจาก Client -> ถือว่ามี Alert
-        if (isFromClient && isNotNewRequest) {
-            // ************ NOTE: ตรงนี้อาจต้องเพิ่ม Logic การ Clear Notification
-            // แต่เนื่องจาก Admin Inbox จะแสดงข้อความล่าสุดอยู่แล้ว 
-            // การนับแค่ New Request + Alert เมื่อมีข้อความใหม่ล่าสุดจาก Client น่าจะเพียงพอ
-            return count + 1;
-        }
         
-        return count;
-    }, 0);
+        if (!isFromClient) return false;
+        
+        // ตรวจสอบว่าข้อความล่าสุดใหม่กว่าเวลาที่ Admin เปิด Inbox ล่าสุด
+        const lastViewedTimestamp = adminLastViewedMessages[req.id] || new Date(0).toISOString();
+        
+        return new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime();
+    });
+    const adminNewMessageAlertCount = newMessageAlerts.length;
 
-    // 🚨 รวม Admin Notification Count
+
+    // 🚨 รวมตัวนับทั้งหมดสำหรับ Header Bell และ Sidebar Link
     const totalAdminNotificationCount = adminNewRequestsCount + adminNewMessageAlertCount;
     
     // เลือกตัวนับที่เหมาะสมสำหรับ Header Bell
@@ -150,36 +169,50 @@ function Layout() {
     const handleNotificationClick = () => {
         if (isAdmin) {
             setIsDropdownOpen(prev => {
-                // ถ้ากำลังจะเปิด: เคลียร์แจ้งเตือน Admin Request
+                // ถ้ากำลังจะเปิด:
                 if (!prev) {
-                    const newRequestIds = commissionRequests
-                        .filter(req => req.status === 'New Request')
-                        .map(req => req.id);
-                    
+                     // 1. เคลียร์ New Request IDs
+                    const newRequestIds = newRequestAlerts.map(req => req.id);
                     setViewedRequests(prevViewed => 
                         [...new Set([...prevViewed, ...newRequestIds])] 
                     );
+                    
+                    // 2. เคลียร์ New Message Alerts โดยการอัปเดต timestamp ล่าสุด
+                    const now = new Date().toISOString();
+                    const updatedViewedMessages = { ...adminLastViewedMessages };
+                    newMessageAlerts.forEach(req => {
+                        updatedViewedMessages[req.id] = now;
+                    });
+                    setAdminLastViewedMessages(updatedViewedMessages);
                 }
                 return !prev;
             });
         } else {
-             // 🚨 Client: คลิก Bell นำไปหน้า Messages ทันที (ไม่เปิด Dropdown)
+             // Client: คลิก Bell นำไปหน้า Messages ทันที (ไม่เปิด Dropdown)
              navigate('/dashboard/messages');
         }
     };
     
-    // 🚨 ฟังก์ชัน: ปิด Dropdown
+    // 🚨 ฟังก์ชัน: ปิด Dropdown (ใช้เมื่อคลิกนอก Dropdown)
     const closeDropdown = () => {
         setIsDropdownOpen(false);
-        // เมื่อปิด Dropdown, ให้ถือว่ารายการใน Dropdown ถูก "ดู" แล้ว
-        const newRequestIds = commissionRequests
-            .filter(req => req.status === 'New Request')
-            .map(req => req.id);
-                    
+        // ทำการเคลียร์ Notifications เมื่อปิด Dropdown
+        const now = new Date().toISOString();
+        
+        // 1. เคลียร์ New Request IDs
+        const newRequestIds = newRequestAlerts.map(req => req.id);
         setViewedRequests(prevViewed => 
             [...new Set([...prevViewed, ...newRequestIds])]
         ); 
+        
+        // 2. เคลียร์ New Message Alerts
+        const updatedViewedMessages = { ...adminLastViewedMessages };
+        newMessageAlerts.forEach(req => {
+            updatedViewedMessages[req.id] = now;
+        });
+        setAdminLastViewedMessages(updatedViewedMessages);
     };
+
 
     // 🚨 useEffect: ปิด Dropdown เมื่อคลิกที่อื่น
     useEffect(() => {
@@ -192,7 +225,7 @@ function Layout() {
             document.addEventListener("mousedown", handleClickOutside);
         }
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [dropdownRef, isAdmin]);
+    }, [dropdownRef, isAdmin, adminNewRequestsCount, adminNewMessageAlertCount]); // 🚨 Add dependencies
 
 
     const getLinkClasses = (path) => {
@@ -332,7 +365,8 @@ function Layout() {
                             {/* Dropdown แสดงเฉพาะ Admin */}
                             {isAdmin && isDropdownOpen && (
                                 <NotificationDropdown 
-                                    requests={commissionRequests.filter(req => req.status === 'New Request')} 
+                                    requests={newRequestAlerts} // 🚨 ส่งแค่ New Request
+                                    messageAlerts={newMessageAlerts} // 🚨 ส่ง New Message Alert
                                     handleClose={closeDropdown} 
                                 />
                             )}

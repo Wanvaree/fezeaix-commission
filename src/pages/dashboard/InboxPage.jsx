@@ -5,7 +5,7 @@ import { FaTrash, FaPaperPlane, FaUserCircle } from 'react-icons/fa';
 
 // Component ย่อยสำหรับหน้าต่างแชท (Admin Side)
 function CommissionChat({ request, currentUser, addMessage, deleteMessage }) { 
-    const [messageInput, setMessageInput] = useState('');
+    // ... (โค้ดเหมือนเดิม)
     const chatEndRef = useRef(null);
 
     // Scroll ไปด้านล่างเมื่อข้อความมีการเปลี่ยนแปลง
@@ -32,7 +32,8 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
     // ใช้ custom-scroll ที่กำหนดใน index.css
     return (
         <div className="flex flex-col h-full bg-white border border-gray-200 rounded-xl shadow-md">
-            <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center">
+             {/* ... (Chat UI เหมือนเดิม) */}
+             <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center">
                 <FaUserCircle size={24} className="mr-3 text-blue-500" />
                 <div>
                     <h3 className="text-xl font-bold text-gray-800">Chat with: {request.requesterUsername}</h3>
@@ -62,10 +63,8 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
                             key={msg.id} 
                             className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                         >
-                            {/* 🚨 โค้ดที่แก้ไข: เพิ่ม div ครอบปุ่มลบและ Bubble ข้อความ (max-w-[70%]) */}
                             <div className={`flex items-end max-w-[70%] relative ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
                                 
-                                {/* 2. Bubble ข้อความ */}
                                 <div className={`px-4 py-2 rounded-xl shadow-md ${
                                     isCurrentUser 
                                     ? 'bg-blue-600 text-white rounded-br-none' 
@@ -80,7 +79,6 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
                                     </span>
                                 </div>
 
-                                {/* 1. ปุ่มลบ (แสดงเฉพาะเมื่อเป็นข้อความของ Admin/CurrentUser) */}
                                 {isCurrentUser && (
                                     <button
                                         onClick={() => handleDeleteMessage(msg.id)}
@@ -124,7 +122,8 @@ function CommissionChat({ request, currentUser, addMessage, deleteMessage }) {
 
 
 function InboxPage() {
-    const { commissionRequests, deleteCommissionRequest, user, addMessageToCommissionRequest, deleteMessageFromCommissionRequest } = useAuth();
+    // 🚨 เพิ่ม setClientMessagesViewed
+    const { commissionRequests, deleteCommissionRequest, user, addMessageToCommissionRequest, deleteMessageFromCommissionRequest, setClientMessagesViewed } = useAuth();
     
     // เรียงลำดับ Requests ก่อนเพื่อเลือกอันล่าสุด
     const sortedRequests = commissionRequests.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -140,11 +139,42 @@ function InboxPage() {
             const updatedRequest = commissionRequests.find(req => req.id === selectedRequest.id);
             setSelectedRequest(updatedRequest || null);
         } else if (latestRequest) {
-            // แก้ไข: ตรวจสอบและเลือกอันล่าสุดเมื่อไม่มีการเลือก
              setSelectedRequest(latestRequest);
         }
-    }, [commissionRequests, user]);
-
+    }, [commissionRequests, user, selectedRequest]);
+    
+    // 🚨 Logic การเคลียร์แจ้งเตือนของ Admin เมื่อเปิด Chat
+    useEffect(() => {
+        if (selectedRequest && selectedRequest.messages && selectedRequest.messages.length > 0) {
+            const lastMessage = selectedRequest.messages[selectedRequest.messages.length - 1];
+            // เคลียร์เฉพาะเมื่อข้อความล่าสุดมาจาก Client
+            if (lastMessage.sender !== 'fezeaix' && lastMessage.sender !== 'System') {
+                // 🚨 ใช้ setClientMessagesViewed แต่ส่งเป็น user.username (fezeaix)
+                // เพื่ออัปเดต lastViewedByClient.fezeaix ใน Firestore
+                // Note: ฟังก์ชัน setClientMessagesViewed ใน AuthContext มีเงื่อนไข if (!user || user.role === 'admin') return; 
+                // ซึ่งเราต้อง bypass มัน (แต่มันปลอดภัยแล้วเพราะ Admin มี Logic เคลียร์ใน Layout/Dropdown) 
+                // **ดังนั้นสำหรับ Admin เราจะเคลียร์ผ่าน Local Storage/Layout Component แทน**
+                
+                // 🚨 NOTE: เพื่อให้ง่ายต่อการใช้งานและซิงค์กับ Layout Component
+                // เราจะทำการอัปเดต Local Storage ที่ใช้ใน Layout Component ตรงๆ
+                const storedViewedMessages = JSON.parse(localStorage.getItem('adminLastViewedMessages') || '{}');
+                const now = new Date().toISOString();
+                
+                // ถ้าข้อความใหม่กว่าที่เคยมาร์คว่าอ่านแล้ว
+                if (new Date(lastMessage.timestamp).getTime() > new Date(storedViewedMessages[selectedRequest.id] || 0).getTime()) {
+                    const newViewedMessages = {
+                        ...storedViewedMessages,
+                        [selectedRequest.id]: now
+                    };
+                    localStorage.setItem('adminLastViewedMessages', JSON.stringify(newViewedMessages));
+                    // 🚨 Trigger force update (อาจจะต้องใช้ State ใน Layout แต่เราจะพึ่งพา onSnapshot ของ commission requests)
+                    // เนื่องจากเราไม่สามารถอัปเดต State ภายนอกได้โดยตรงจากตรงนี้ 
+                    // การอัปเดต Local Storage แล้วรอ onSnapshot มาช่วยอัปเดต Layout เป็นวิธีที่ง่ายที่สุด
+                    // แต่ในกรณีนี้เราต้องรอให้ Layout อัปเดต State adminLastViewedMessages จาก Local Storage ในรอบถัดไป
+                }
+            }
+        }
+    }, [selectedRequest, commissionRequests]); // เพิ่ม commissionRequests เป็น dependency เพื่อให้รันเมื่อข้อความใหม่เข้า
 
     const handleDelete = (id) => {
         if (window.confirm('Are you sure you want to delete this commission request? This action is permanent.')) {
@@ -161,6 +191,20 @@ function InboxPage() {
 
     const handleDeleteMessage = async (requestId, messageId) => {
         await deleteMessageFromCommissionRequest(requestId, messageId);
+    };
+    
+    // 🚨 Logic สำหรับแสดงวงกลมแดงในรายการ Request Panel
+    const hasUnreadMessage = (request) => {
+        if (!request.messages || request.messages.length === 0) return false;
+        
+        const lastMessage = request.messages[request.messages.length - 1];
+        if (lastMessage.sender === 'fezeaix' || lastMessage.sender === 'System') return false; // ไม่ใช่ข้อความจาก Client
+        
+        // ดึง Admin Last Viewed จาก Local Storage
+        const storedViewedMessages = JSON.parse(localStorage.getItem('adminLastViewedMessages') || '{}');
+        const lastViewedTimestamp = storedViewedMessages[request.id] || new Date(0).toISOString();
+        
+        return new Date(lastMessage.timestamp).getTime() > new Date(lastViewedTimestamp).getTime();
     };
 
 
@@ -179,25 +223,23 @@ function InboxPage() {
                             {sortedRequests
                                 .map((request) => { // ใช้ sortedRequests
                                 const isSelected = selectedRequest && selectedRequest.id === request.id;
-                                // แก้ไข: เพิ่มการตรวจสอบว่า messages มีอยู่จริง
+                                const unread = hasUnreadMessage(request); // 🚨 ตรวจสอบสถานะยังไม่อ่าน
+                                
                                 const lastMessage = 
                                     request.messages && request.messages.length > 0
                                         ? request.messages[request.messages.length - 1] 
                                         : null;
                                 
-                                // 🚨 หาข้อความ System Message 
                                 const systemMessage = request.messages && request.messages.find(msg => msg.sender === 'System');
 
                                 return (
                                     <div 
                                         key={request.id} 
                                         onClick={() => setSelectedRequest(request)}
-                                        // 🚨 เพิ่ม overflow-hidden และ break-words ใน Container รายการ
                                         className={`p-4 rounded-lg shadow-sm border transition-all duration-200 cursor-pointer overflow-hidden break-words ${
                                             isSelected ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-500' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                                        } flex items-center justify-between`}
+                                        } flex items-center justify-between relative`}
                                     >
-                                        {/* 🚨 แก้ไข: เพิ่ม overflow-hidden ตรงนี้ด้วย */}
                                         <div className="flex-1 mr-4 overflow-hidden">
                                             <p className="font-semibold text-gray-800 text-lg">
                                                 <span className="text-blue-600">{request.requesterUsername}</span> requested <span className="text-purple-600">{request.commissionType}</span>
@@ -206,20 +248,25 @@ function InboxPage() {
                                                 Price: <span className="font-medium">${request.price}</span> | Status: <span className="font-medium text-green-700">{request.status}</span>
                                             </p>
                                             
-                                            {/* 🚨 แสดง System Message และใช้ truncate */}
                                             {systemMessage && (
                                                 <p className="text-gray-500 text-xs mt-1 truncate">
                                                     <span className="font-medium">System:</span> {systemMessage.text}
                                                 </p>
                                             )}
                                             
-                                            {/* 🚨 ซ่อน lastMessage ถ้ามันคือ System Message เพื่อไม่ให้ซ้ำ */}
                                             {lastMessage && lastMessage.sender !== 'System' && (
                                                 <p className="text-gray-500 text-xs mt-1 truncate">
                                                     <span className="font-medium">{lastMessage.sender === user.username ? 'You' : lastMessage.sender}:</span> {lastMessage.text}
                                                 </p>
                                             )}
                                         </div>
+                                        {/* 🚨 วงกลมแดง Pulse Dot สำหรับ Unread Message ในรายการ */}
+                                        {unread && (
+                                            <span className="absolute top-2 right-10 relative flex h-3 w-3" title="New Client Message">
+                                                <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                            </span>
+                                        )}
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleDelete(request.id); }}
                                             className="text-red-500 hover:text-red-700 p-2 rounded-full transition-colors duration-200 flex-shrink-0"
@@ -241,7 +288,7 @@ function InboxPage() {
                             request={selectedRequest} 
                             currentUser={user}
                             addMessage={handleAddMessage}
-                            deleteMessage={handleDeleteMessage} // 🚨 ส่งฟังก์ชันลบข้อความ
+                            deleteMessage={handleDeleteMessage}
                         />
                     </div>
                 ) : (
