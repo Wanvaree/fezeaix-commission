@@ -4,7 +4,7 @@ import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { FaImage, FaPaintBrush, FaListAlt, FaCog, FaSignOutAlt, FaBell, FaUserCircle, FaInbox, FaComments, FaHistory, FaChevronDown, FaVolumeUp, FaTrashAlt } from 'react-icons/fa'; 
 import { useAuth } from '../context/AuthContext';
 
-// 🚨 Component ย่อยสำหรับแถบแจ้งเตือน
+// 🚨 Component ย่อยสำหรับแถบแจ้งเตือน (Admin Dropdown)
 function NotificationDropdown({ newRequests, messageAlerts, handleClose, handleClearAll }) { 
     
     // รวมรายการแจ้งเตือนทั้งหมดสำหรับแสดงใน Dropdown
@@ -43,7 +43,7 @@ function NotificationDropdown({ newRequests, messageAlerts, handleClose, handleC
                 <div className="max-h-80 overflow-y-auto">
                     {allAlerts.map((alert) => ( 
                         <Link
-                            key={alert.id + alert.type} // ใช้ ID + Type เพื่อให้ Key ไม่ซ้ำ
+                            key={alert.id + alert.type} 
                             to="/dashboard/inbox"
                             onClick={handleClose}
                             className="flex flex-col p-3 hover:bg-gray-50 border-b border-gray-100 transition-colors"
@@ -66,8 +66,7 @@ function NotificationDropdown({ newRequests, messageAlerts, handleClose, handleC
 }
 
 function Layout() {
-    // 🚨 เพิ่ม requestNotificationPermission, clearClientNotifications
-    const { user, logout, commissionRequests, isAdmin, requestNotificationPermission, clearClientNotifications } = useAuth(); 
+    const { user, logout, commissionRequests, isAdmin, requestNotificationPermission } = useAuth(); 
     const navigate = useNavigate();
     const location = useLocation(); 
     
@@ -75,18 +74,15 @@ function Layout() {
     const dropdownRef = useRef(null); 
     
     // Admin Notification States
-    // ** viewedRequests (สำหรับ New Request ID) **
     const [viewedRequests, setViewedRequests] = useState(() => {
         const stored = localStorage.getItem('viewedRequests');
         return stored ? JSON.parse(stored) : [];
     });
-    // ** adminLastViewedMessages (สำหรับ Message Alert) **
     const [adminLastViewedMessages, setAdminLastViewedMessages] = useState(() => {
         const stored = localStorage.getItem('adminLastViewedMessages');
-        return stored ? JSON.parse(stored) : {}; // { requestId: timestamp }
+        return stored ? JSON.parse(stored) : {}; 
     });
     
-    // Notification Status (ใช้สำหรับปุ่ม Enable Notifications)
     const [notificationStatus, setNotificationStatus] = useState(Notification.permission);
 
     // useEffects for Local Storage Sync
@@ -167,9 +163,9 @@ function Layout() {
 
             // 2. เคลียร์ New Message Alerts โดยการอัปเดต timestamp ล่าสุด
             const now = new Date().toISOString();
-            const updatedViewedMessages = { ...adminLastViewedMessages };
+            const updatedViewedMessages = {}; 
             
-            // มาร์ค Request ทั้งหมด (ที่มีข้อความล่าสุดจาก Client หรือเป็น New Request) ว่าอ่านแล้ว
+            // มาร์ค Request ทั้งหมดว่าอ่านแล้ว (เพื่อเคลียร์ Message Alert)
             commissionRequests.forEach(req => {
                  updatedViewedMessages[req.id] = now;
             });
@@ -185,6 +181,7 @@ function Layout() {
         if (isAdmin) {
             setIsDropdownOpen(prev => !prev);
         } else {
+             // 🚨 Client: คลิก Bell นำไปหน้า Messages ทันที
              navigate('/dashboard/messages');
         }
     };
@@ -192,12 +189,38 @@ function Layout() {
     // 🚨 ฟังก์ชัน: ปิด Dropdown (ใช้เมื่อคลิกนอก Dropdown - ไม่เคลียร์ทั้งหมด)
     const closeDropdown = () => {
         setIsDropdownOpen(false);
-        // NOTE: เราไม่เคลียร์ Notifications ที่นี่แล้ว เพราะเราใช้ปุ่ม Clear All แทน
     };
 
 
-    // 🚨 useEffect: ปิด Dropdown เมื่อคลิกที่อื่น
+    // 🚨 useEffect: Trigger Admin Message Alert Clear เมื่อเข้าหน้า Inbox
     useEffect(() => {
+        if (isAdmin && location.pathname.startsWith('/dashboard/inbox')) {
+             // เมื่อ Admin เข้าหน้า Inbox, ให้ถือว่า Message Alert ทั้งหมดถูก 'ดู' แล้ว
+            const now = new Date().toISOString();
+            const newViewedMessages = { ...adminLastViewedMessages };
+            
+            // อัปเดตเฉพาะ Request ที่มี Message Alert และ New Request ที่ยังไม่ได้ถูกมาร์คว่า viewed
+            const alertsToClear = [...newRequestAlerts.map(r => r.id), ...newMessageAlerts.map(r => r.id)];
+
+            alertsToClear.forEach(id => {
+                newViewedMessages[id] = now;
+            });
+
+            // เคลียร์ New Request ID จาก viewedRequests ทันทีเมื่อเข้า Inbox
+            setViewedRequests(prevViewed => [...new Set([...prevViewed, ...newRequestAlerts.map(r => r.id)])]);
+
+            
+            // ตรวจสอบว่ามีการเปลี่ยนแปลงหรือไม่ก่อนอัปเดต (เพื่อลดการรีเรนเดอร์)
+            const didMessageAlertsChange = newMessageAlerts.length > 0; 
+            const didRequestAlertsChange = newRequestAlerts.length > 0;
+            
+            if (didMessageAlertsChange || didRequestAlertsChange) {
+                 setAdminLastViewedMessages(newViewedMessages);
+                 localStorage.setItem('adminLastViewedMessages', JSON.stringify(newViewedMessages));
+            }
+        }
+        
+        // useEffect เดิมสำหรับปิด Dropdown
         function handleClickOutside(event) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 closeDropdown();
@@ -207,8 +230,7 @@ function Layout() {
             document.addEventListener("mousedown", handleClickOutside);
         }
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [dropdownRef, isAdmin]); 
-
+    }, [dropdownRef, isAdmin, location.pathname, commissionRequests]); 
 
     const getLinkClasses = (path) => {
         const isActive = location.pathname.startsWith(`/dashboard/${path}`);
